@@ -1,0 +1,83 @@
+import React from 'react';
+
+interface ShipwiseIconProps {
+  className?: string;
+  size?: number;
+}
+
+export function ShipwiseIcon({ className = '', size = 32 }: ShipwiseIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      {/* Ship hull base */}
+      <path
+        d="M4 20L6 16H26L28 20L24 24H8L4 20Z"
+        fill="currentColor"
+        opacity="0.2"
+      />
+      
+      {/* Ship hull outline */}
+      <path
+        d="M6 16L4 20L8 24H24L28 20L26 16H6Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      
+      {/* Container boxes (representing packages/releases) */}
+      <rect
+        x="10"
+        y="10"
+        width="5"
+        height="6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      <rect
+        x="17"
+        y="10"
+        width="5"
+        height="6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      
+      {/* Mast/flag representing deployment */}
+      <path
+        d="M12.5 10V5M12.5 5L16 7L12.5 9V5Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        fill="currentColor"
+        opacity="0.8"
+      />
+      
+      {/* Wave accents */}
+      <path
+        d="M2 26C4 25 6 27 8 26C10 25 12 27 14 26C16 25 18 27 20 26C22 25 24 27 26 26C28 25 30 27 30 26"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.3"
+      />
+    </svg>
+  );
+}
+
+export function ShipwiseLogo({ className = '' }: { className?: string }) {
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <ShipwiseIcon size={32} />
+      <span className="font-semibold text-lg">Shipwise</span>
+    </div>
+  );
+}

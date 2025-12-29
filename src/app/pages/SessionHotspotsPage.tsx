@@ -1,20 +1,24 @@
 import { useParams, Link } from 'react-router-dom';
-import { useRelease } from '../context/ReleaseContext';
+import { useSessions } from '../context/SessionContext';
 import { HotspotsPage } from './HotspotsPage';
+import { HotspotsPageSkeleton } from '../components/skeletons/ArtifactSkeletons';
 
 export function SessionHotspotsPage() {
-  const { releaseId, sessionId } = useParams<{ releaseId: string; sessionId: string }>();
-  const { releases } = useRelease();
+  const { sessionId } = useParams<{ sessionId: string }>();
+  const { sessions, isLoading } = useSessions();
 
-  const release = releases.find((r) => r.id === releaseId);
-  const session = release?.sessions.find((s) => s.id === sessionId);
+  // Show skeleton while sessions are loading
+  if (isLoading) {
+    return <HotspotsPageSkeleton />;
+  }
 
-  if (!session || !release) {
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session) {
     return (
       <div className="p-8 text-center">
         <p className="text-gray-600">Session not found</p>
-        <Link to="/releases">
-          <button className="mt-4 text-blue-600 hover:underline">Back to Releases</button>
+        <Link to="/sessions">
+          <button className="mt-4 text-blue-600 hover:underline">Back to Sessions</button>
         </Link>
       </div>
     );
@@ -22,3 +26,4 @@ export function SessionHotspotsPage() {
 
   return <HotspotsPage />;
 }
+
