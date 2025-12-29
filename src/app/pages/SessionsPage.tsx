@@ -42,7 +42,7 @@ export function SessionsPage() {
     setIsCreating(true);
     try {
       await createSession({
-        name: formData.name || `Session ${new Date().toLocaleString()}`,
+        name: formData.name || `Draft ${new Date().toLocaleString()}`,
         repoFullName: formData.repoFullName,
         baseRef: formData.baseRef,
         headRef: formData.headRef,
@@ -72,7 +72,7 @@ export function SessionsPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-gray-900 mb-2">Sessions</h1>
+          <h1 className="text-gray-900 mb-2">Release Drafts</h1>
           <p className="text-gray-600">Generate artifacts for a repo commit range</p>
         </div>
 
@@ -89,7 +89,7 @@ export function SessionsPage() {
               className="gap-2"
             >
               <Plus className="h-4 w-4" />
-              New Session
+              New Draft
             </Button>
           )}
         </div>
@@ -161,8 +161,8 @@ export function SessionsPage() {
               <Layers className="h-8 w-8 text-gray-400" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-gray-900">No sessions yet</h3>
-              <p className="text-gray-500 max-w-sm">Create your first session to start generating release notes.</p>
+              <h3 className="text-lg font-semibold text-gray-900">No release drafts yet</h3>
+              <p className="text-gray-500 max-w-sm">Create your first draft to start generating release notes.</p>
             </div>
             <Button 
               variant="dark"
@@ -170,17 +170,17 @@ export function SessionsPage() {
               className="gap-2 mt-2"
             >
               <Plus className="h-4 w-4" />
-              Create First Session
+              Create First Draft
             </Button>
           </div>
         </Card>
       )}
 
-      {/* Create Session Dialog */}
+      {/* Create Release Draft Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Create Session</DialogTitle>
+            <DialogTitle>Create Release Draft</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
@@ -255,9 +255,9 @@ export function SessionsPage() {
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle>Delete Session</DialogTitle>
+            <DialogTitle>Delete Release Draft</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{deleteTarget?.name}"? This will permanently remove the session and all its data.
+              Are you sure you want to delete "{deleteTarget?.name}"? This will permanently remove the draft and all its data.
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 pt-4">

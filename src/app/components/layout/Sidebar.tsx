@@ -15,7 +15,7 @@ export function Sidebar() {
 
   const mainNavItems = [
     { to: '/', icon: Home, label: 'Dashboard' },
-    { to: '/sessions', icon: Activity, label: 'Sessions' },
+    { to: '/sessions', icon: Activity, label: 'Release Drafts' },
   ];
 
   const sessionNavItems = showSessionNav ? [
@@ -58,7 +58,7 @@ export function Sidebar() {
             
             <div className="px-4 pb-2">
               <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 py-1">
-                Current Session
+                Current Draft
               </div>
             </div>
 

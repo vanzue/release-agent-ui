@@ -99,11 +99,11 @@ export function DashboardPage() {
               <Layers className="h-5 w-5 text-gray-600" />
               <h3 className="text-lg font-semibold text-gray-900">Ready to analyze your repository?</h3>
             </div>
-            <p className="text-gray-500">Create a session to start generating release artifacts.</p>
+            <p className="text-gray-500">Create a release draft to start generating release artifacts.</p>
           </div>
           <Link to="/sessions">
             <Button variant="dark" className="gap-2">
-              Go to Sessions
+              Go to Release Drafts
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
