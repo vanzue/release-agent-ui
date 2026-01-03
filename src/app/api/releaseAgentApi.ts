@@ -4,6 +4,13 @@ import type {
   ApiCreateSessionRequest,
   ApiExportResult,
   ApiHotspotsArtifact,
+  ApiIssueClusterDetails,
+  ApiIssueClustersResponse,
+  ApiIssueProductsResponse,
+  ApiIssueSearchResponse,
+  ApiIssueStats,
+  ApiIssueSyncStatus,
+  ApiIssueVersionsResponse,
   ApiJob,
   ApiListResponse,
   ApiPatchReleaseNotesRequest,
@@ -52,5 +59,56 @@ export function createReleaseAgentApi(baseUrl: string) {
 
     createExport: (sessionId: string, body: ApiCreateExportRequest) =>
       requestJson<ApiExportResult>(baseUrl, `/sessions/${sessionId}/exports`, { method: 'POST', body }),
+
+    // Issue clustering
+    listIssueVersions: (repo: string) =>
+      requestJson<ApiIssueVersionsResponse>(baseUrl, `/issues/versions?repo=${encodeURIComponent(repo)}`),
+    listIssueProducts: (repo: string, targetVersion?: string | null) => {
+      const params = new URLSearchParams({ repo });
+      if (targetVersion !== undefined && targetVersion !== null) params.set('targetVersion', targetVersion);
+      return requestJson<ApiIssueProductsResponse>(baseUrl, `/issues/products?${params.toString()}`);
+    },
+    listIssueClusters: (repo: string, productLabel: string, _targetVersion?: string | null) => {
+      const params = new URLSearchParams({ repo, productLabel });
+      return requestJson<ApiIssueClustersResponse>(baseUrl, `/issues/clusters?${params.toString()}`);
+    },
+    getIssueCluster: (repo: string, clusterId: string) =>
+      requestJson<ApiIssueClusterDetails>(
+        baseUrl,
+        `/issues/clusters/${encodeURIComponent(clusterId)}?repo=${encodeURIComponent(repo)}`
+      ),
+    searchIssues: (repo: string, options: {
+      targetVersion?: string | null;
+      productLabels?: string[];
+      state?: 'open' | 'closed';
+      clusterId?: string;
+      q?: string;
+      limit?: number;
+      offset?: number;
+    }) => {
+      const params = new URLSearchParams({ repo });
+      if (options.targetVersion !== undefined && options.targetVersion !== null) params.set('targetVersion', options.targetVersion);
+      if (options.productLabels && options.productLabels.length > 0) params.set('productLabels', options.productLabels.join(','));
+      if (options.state) params.set('state', options.state);
+      if (options.clusterId) params.set('clusterId', options.clusterId);
+      if (options.q) params.set('q', options.q);
+      if (options.limit !== undefined) params.set('limit', String(options.limit));
+      if (options.offset !== undefined) params.set('offset', String(options.offset));
+      return requestJson<ApiIssueSearchResponse>(baseUrl, `/issues/search?${params.toString()}`);
+    },
+    getIssueSyncStatus: (repo: string) =>
+      requestJson<ApiIssueSyncStatus>(baseUrl, `/issues/sync-status?repo=${encodeURIComponent(repo)}`),
+    getIssueStats: (repo: string) =>
+      requestJson<ApiIssueStats>(baseUrl, `/issues/stats?repo=${encodeURIComponent(repo)}`),
+    enqueueIssueSync: (repoFullName: string, fullSync?: boolean) =>
+      requestJson<{ status: string }>(baseUrl, `/issues/sync`, { method: 'POST', body: { repoFullName, fullSync } }),
+    enqueueIssueRecluster: (body: {
+      repoFullName: string;
+      targetVersion: string | null;
+      productLabel: string;
+      threshold: number;
+      topK: number;
+    }) =>
+      requestJson<{ status: string }>(baseUrl, `/issues/recluster`, { method: 'POST', body }),
   };
 }

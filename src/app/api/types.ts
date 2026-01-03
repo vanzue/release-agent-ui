@@ -149,3 +149,93 @@ export type ApiExportResult = {
   createdAt: string;
   results: Record<string, unknown>;
 };
+
+// Issue clustering
+export type ApiIssueVersion = {
+  targetVersion: string | null;
+  issueCount: number;
+};
+
+export type ApiIssueVersionsResponse = {
+  versions: ApiIssueVersion[];
+  defaultTargetVersion: string | null;
+};
+
+export type ApiIssueProduct = {
+  productLabel: string;
+  issueCount: number;
+  clusterCount: number;
+};
+
+export type ApiIssueProductsResponse = {
+  targetVersion: string | null;
+  defaultTargetVersion: string | null;
+  products: ApiIssueProduct[];
+};
+
+export type ApiIssueCluster = {
+  clusterId: string;
+  size: number;
+  updatedAt: string;
+  popularity: number;
+  representativeIssueNumber: number | null;
+  representativeTitle: string | null;
+};
+
+export type ApiIssueClustersResponse = {
+  targetVersion: string | null;
+  defaultTargetVersion: string | null;
+  productLabel: string;
+  clusters: ApiIssueCluster[];
+};
+
+export type ApiIssueClusterDetails = {
+  cluster: {
+    clusterId: string;
+    repoFullName: string;
+    targetVersion: string | null;
+    productLabel: string;
+    thresholdUsed: number;
+    topkUsed: number;
+    size: number;
+    popularity: number;
+    representativeIssueNumber: number | null;
+    updatedAt: string;
+  };
+  issues: Array<{
+    issueNumber: number;
+    title: string;
+    state: 'open' | 'closed';
+    labelsJson: any;
+    updatedAt: string;
+    similarity: number;
+  }>;
+};
+
+export type ApiIssueSearchResponse = {
+  targetVersion: string | null;
+  defaultTargetVersion: string | null;
+  issues: Array<{
+    issueNumber: number;
+    title: string;
+    state: 'open' | 'closed';
+    targetVersion: string | null;
+    labelsJson: any;
+    productLabels: string[];
+    updatedAt: string;
+  }>;
+};
+
+export type ApiIssueSyncStatus = {
+  currentCount: number;
+  estimatedTotal: number | null;
+  isSyncing: boolean;
+  lastSyncedAt: string | null;
+  progress: number;
+};
+
+export type ApiIssueStats = {
+  totalIssues: number;
+  openIssues: number;
+  embeddedOpenIssues: number;
+};

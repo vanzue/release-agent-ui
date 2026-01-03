@@ -8,7 +8,7 @@ export function Layout() {
       <Header />
       <div className="flex flex-1 min-h-0">
         <Sidebar />
-        <main className="flex-1 min-h-0 overflow-hidden">
+        <main className="flex-1 min-h-0 overflow-auto">
           <Outlet />
         </main>
       </div>

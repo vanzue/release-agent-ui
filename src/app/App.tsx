@@ -8,6 +8,7 @@ import { SessionHotspotsPage } from './pages/SessionHotspotsPage';
 import { SessionTestPlanPage } from './pages/SessionTestPlanPage';
 import { SessionExportsPage } from './pages/SessionExportsPage';
 import { SessionProvider } from './context/SessionContext';
+import { IssueClustersPage } from './pages/IssueClustersPage';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="sessions/:sessionId/hotspots" element={<SessionHotspotsPage />} />
             <Route path="sessions/:sessionId/test-plan" element={<SessionTestPlanPage />} />
             <Route path="sessions/:sessionId/exports" element={<SessionExportsPage />} />
+            <Route path="issues" element={<IssueClustersPage />} />
             {/* Redirect old routes */}
             <Route path="runs" element={<Navigate to="/sessions" replace />} />
             <Route path="runs/:sessionId/*" element={<Navigate to="/sessions" replace />} />
