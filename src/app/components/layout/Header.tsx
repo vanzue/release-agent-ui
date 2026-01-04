@@ -1,14 +1,17 @@
 import { useParams, Link } from 'react-router-dom';
-import { Settings, HelpCircle, User, Sparkles, ChevronRight } from 'lucide-react';
+import { Settings, HelpCircle, User, Sparkles, ChevronRight, GitBranch } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback } from '../ui/avatar';
+import { Input } from '../ui/input';
 import { useSessions } from '../../context/SessionContext';
+import { useRepo } from '../../context/RepoContext';
 import { ShipwiseIcon } from '../icons/ShipwiseIcon';
 
 export function Header() {
   const { sessionId } = useParams<{ sessionId?: string }>();
   const { sessions } = useSessions();
+  const { repo, setRepo } = useRepo();
   const session = sessions.find((s) => s.id === sessionId);
 
   const getSessionStatusColor = (status: string) => {
@@ -58,6 +61,15 @@ export function Header() {
       )}
 
       <div className="flex items-center gap-1 ml-auto">
+        <div className="flex items-center gap-2 mr-4">
+          <GitBranch className="h-4 w-4 text-gray-400" />
+          <Input
+            value={repo}
+            onChange={(e) => setRepo(e.target.value)}
+            placeholder="owner/repo"
+            className="w-48 h-8 text-sm"
+          />
+        </div>
         <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-900 hover:bg-gray-100">
           <Settings className="h-5 w-5" />
         </Button>

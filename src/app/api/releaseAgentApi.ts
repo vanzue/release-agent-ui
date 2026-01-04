@@ -11,6 +11,7 @@ import type {
   ApiIssueStats,
   ApiIssueSyncStatus,
   ApiIssueVersionsResponse,
+  ApiTopIssuesResponse,
   ApiJob,
   ApiListResponse,
   ApiPatchReleaseNotesRequest,
@@ -65,7 +66,9 @@ export function createReleaseAgentApi(baseUrl: string) {
       requestJson<ApiIssueVersionsResponse>(baseUrl, `/issues/versions?repo=${encodeURIComponent(repo)}`),
     listIssueProducts: (repo: string, targetVersion?: string | null) => {
       const params = new URLSearchParams({ repo });
-      if (targetVersion !== undefined && targetVersion !== null) params.set('targetVersion', targetVersion);
+      if (targetVersion !== undefined) {
+        params.set('targetVersion', targetVersion ?? '__null__');
+      }
       return requestJson<ApiIssueProductsResponse>(baseUrl, `/issues/products?${params.toString()}`);
     },
     listIssueClusters: (repo: string, productLabel: string, _targetVersion?: string | null) => {
@@ -100,6 +103,15 @@ export function createReleaseAgentApi(baseUrl: string) {
       requestJson<ApiIssueSyncStatus>(baseUrl, `/issues/sync-status?repo=${encodeURIComponent(repo)}`),
     getIssueStats: (repo: string) =>
       requestJson<ApiIssueStats>(baseUrl, `/issues/stats?repo=${encodeURIComponent(repo)}`),
+    getTopIssuesByReactions: (repo: string, targetVersion?: string | null, productLabel?: string, limit?: number) => {
+      const params = new URLSearchParams({ repo });
+      if (targetVersion !== undefined) {
+        params.set('targetVersion', targetVersion ?? '__null__');
+      }
+      if (productLabel) params.set('productLabel', productLabel);
+      if (limit !== undefined) params.set('limit', String(limit));
+      return requestJson<ApiTopIssuesResponse>(baseUrl, `/issues/top-by-reactions?${params.toString()}`);
+    },
     enqueueIssueSync: (repoFullName: string, fullSync?: boolean) =>
       requestJson<{ status: string }>(baseUrl, `/issues/sync`, { method: 'POST', body: { repoFullName, fullSync } }),
     enqueueIssueRecluster: (body: {

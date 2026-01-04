@@ -228,14 +228,25 @@ export type ApiIssueSearchResponse = {
 
 export type ApiIssueSyncStatus = {
   currentCount: number;
-  estimatedTotal: number | null;
-  isSyncing: boolean;
   lastSyncedAt: string | null;
-  progress: number;
 };
 
 export type ApiIssueStats = {
   totalIssues: number;
   openIssues: number;
   embeddedOpenIssues: number;
+};
+
+export type ApiTopIssue = {
+  issueNumber: number;
+  title: string;
+  state: 'open' | 'closed';
+  reactionsCount: number;
+  commentsCount: number;
+  updatedAt: string;
+};
+
+export type ApiTopIssuesResponse = {
+  targetVersion: string | null;
+  issues: ApiTopIssue[];
 };

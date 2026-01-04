@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -7,38 +8,63 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Progress } from '../components/ui/progress';
 import { createReleaseAgentApi } from '../api/releaseAgentApi';
-import type { ApiIssueCluster, ApiIssueProduct, ApiIssueStats, ApiIssueSyncStatus, ApiIssueVersion } from '../api/types';
+import type { ApiIssueCluster, ApiIssueProduct, ApiIssueStats, ApiIssueSyncStatus, ApiIssueVersion, ApiTopIssue } from '../api/types';
+import { useRepo } from '../context/RepoContext';
 
 const UNVERSIONED = '__unversioned__';
+const ALL_VERSIONS = '__all__';
+const VERSION_STORAGE_KEY = 'release-agent:selectedVersion';
+const PRODUCT_STORAGE_KEY = 'release-agent:selectedProduct';
 
-function toSelectValue(v: string | null) {
+function toSelectValue(v: string | null | undefined) {
+  if (v === undefined) return ALL_VERSIONS;
   return v ?? UNVERSIONED;
 }
 
-function fromSelectValue(v: string) {
-  return v === UNVERSIONED ? null : v;
+function fromSelectValue(v: string): string | null | undefined {
+  if (v === ALL_VERSIONS) return undefined;
+  if (v === UNVERSIONED) return null;
+  return v;
 }
 
 export function IssueClustersPage() {
+  const navigate = useNavigate();
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
   const api = useMemo(() => (apiBaseUrl ? createReleaseAgentApi(apiBaseUrl) : null), [apiBaseUrl]);
 
-  const [repo, setRepo] = useState('microsoft/PowerToys');
+  const { repo } = useRepo();
   const [versions, setVersions] = useState<ApiIssueVersion[]>([]);
-  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  // undefined = all versions, null = unversioned, string = specific version
+  const [selectedVersion, setSelectedVersionState] = useState<string | null | undefined>(() => {
+    const stored = localStorage.getItem(VERSION_STORAGE_KEY);
+    if (stored === ALL_VERSIONS) return undefined;
+    if (stored === UNVERSIONED) return null;
+    return stored;
+  });
+  
+  const setSelectedVersion = (v: string | null | undefined) => {
+    setSelectedVersionState(v);
+    localStorage.setItem(VERSION_STORAGE_KEY, toSelectValue(v));
+  };
   const [products, setProducts] = useState<ApiIssueProduct[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProductState] = useState<string | null>(() => {
+    return localStorage.getItem(PRODUCT_STORAGE_KEY);
+  });
+  
+  const setSelectedProduct = (v: string | null) => {
+    setSelectedProductState(v);
+    if (v) {
+      localStorage.setItem(PRODUCT_STORAGE_KEY, v);
+    } else {
+      localStorage.removeItem(PRODUCT_STORAGE_KEY);
+    }
+  };
   const [clusters, setClusters] = useState<ApiIssueCluster[]>([]);
-  const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
-  const [clusterIssues, setClusterIssues] = useState<Array<{
-    issueNumber: number;
-    title: string;
-    state: 'open' | 'closed';
-    updatedAt: string;
-    similarity: number;
-  }>>([]);
   const [syncStatus, setSyncStatus] = useState<ApiIssueSyncStatus | null>(null);
   const [stats, setStats] = useState<ApiIssueStats | null>(null);
+  const [topIssues, setTopIssues] = useState<ApiTopIssue[]>([]);
+  const [versionSearch, setVersionSearch] = useState('');
+  const [productSearch, setProductSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [threshold, setThreshold] = useState('0.86');
   const [topK, setTopK] = useState('10');
@@ -48,14 +74,25 @@ export function IssueClustersPage() {
     if (!api) return;
     const res = await api.listIssueVersions(repo);
     setVersions(res.versions ?? []);
-    setSelectedVersion(res.defaultTargetVersion ?? res.versions?.[0]?.targetVersion ?? null);
+    // Only set default if no stored value
+    const stored = localStorage.getItem(VERSION_STORAGE_KEY);
+    if (!stored) {
+      setSelectedVersion(res.defaultTargetVersion ?? res.versions?.[0]?.targetVersion ?? null);
+    }
   };
 
-  const loadProducts = async (version: string | null) => {
+  const loadProducts = async (version: string | null | undefined) => {
     if (!api) return;
     const res = await api.listIssueProducts(repo, version);
     setProducts(res.products ?? []);
-    setSelectedProduct(res.products?.[0]?.productLabel ?? null);
+    // Use stored product if it exists in the list, otherwise use first product
+    const storedProduct = localStorage.getItem(PRODUCT_STORAGE_KEY);
+    const productExists = res.products?.some(p => p.productLabel === storedProduct);
+    if (storedProduct && productExists) {
+      setSelectedProduct(storedProduct);
+    } else {
+      setSelectedProduct(res.products?.[0]?.productLabel ?? null);
+    }
   };
 
   const loadClusters = async (_version: string | null, productLabel: string | null) => {
@@ -65,16 +102,6 @@ export function IssueClustersPage() {
     }
     const res = await api.listIssueClusters(repo, productLabel, null);
     setClusters(res.clusters ?? []);
-    setSelectedClusterId(res.clusters?.[0]?.clusterId ?? null);
-  };
-
-  const loadClusterDetails = async (clusterId: string | null) => {
-    if (!api || !clusterId) {
-      setClusterIssues([]);
-      return;
-    }
-    const res = await api.getIssueCluster(repo, clusterId);
-    setClusterIssues(res.issues ?? []);
   };
 
   const loadSyncStatus = async () => {
@@ -88,6 +115,28 @@ export function IssueClustersPage() {
     const res = await api.getIssueStats(repo);
     setStats(res);
   };
+
+  const loadTopIssues = async (version: string | null | undefined, productLabel: string | null) => {
+    if (!api) return;
+    const res = await api.getTopIssuesByReactions(repo, version, productLabel ?? undefined, 20);
+    setTopIssues(res.issues ?? []);
+  };
+
+  const filteredVersions = useMemo(() => {
+    if (!versionSearch.trim()) return versions;
+    const search = versionSearch.toLowerCase();
+    return versions.filter(v => 
+      (v.targetVersion ?? 'unversioned').toLowerCase().includes(search)
+    );
+  }, [versions, versionSearch]);
+
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products;
+    const search = productSearch.toLowerCase();
+    return products.filter(p => 
+      p.productLabel.toLowerCase().includes(search)
+    );
+  }, [products, productSearch]);
 
   useEffect(() => {
     if (!api) return;
@@ -123,18 +172,11 @@ export function IssueClustersPage() {
   useEffect(() => {
     if (!api) return;
     void (async () => {
+      await loadTopIssues(selectedVersion, selectedProduct);
       await loadClusters(selectedVersion, selectedProduct);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, selectedVersion, selectedProduct]);
-
-  useEffect(() => {
-    if (!api) return;
-    void (async () => {
-      await loadClusterDetails(selectedClusterId);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, selectedClusterId]);
 
   const handleSync = async () => {
     if (!api) return;
@@ -175,9 +217,25 @@ export function IssueClustersPage() {
           <h1 className="text-gray-900 mb-2">Issue Clusters</h1>
           <p className="text-gray-600">Browse PowerToys issues by product, version, and cluster popularity.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleSync}>Sync Issues</Button>
-          <Button className="bg-gray-900 text-white hover:bg-gray-800" onClick={handleRecluster} disabled={!selectedProduct}>
+        <div className="flex items-center gap-4">
+          {/* Compact sync status */}
+          <div className="text-xs text-gray-500 text-right">
+            {stats && (
+              <div className="flex items-center gap-3">
+                <span>{stats.totalIssues.toLocaleString()} issues</span>
+                <span className="text-gray-300">|</span>
+                <span>{stats.embeddedOpenIssues.toLocaleString()} / {stats.openIssues.toLocaleString()} embedded</span>
+                {syncStatus?.lastSyncedAt && (
+                  <>
+                    <span className="text-gray-300">|</span>
+                    <span>Synced {new Date(syncStatus.lastSyncedAt).toLocaleDateString()}</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          <Button variant="outline" size="sm" onClick={handleSync}>Sync</Button>
+          <Button size="sm" className="bg-gray-900 text-white hover:bg-gray-800" onClick={handleRecluster} disabled={!selectedProduct}>
             Recluster
           </Button>
         </div>
@@ -189,27 +247,36 @@ export function IssueClustersPage() {
         </div>
       )}
 
-      <Card className="p-4 flex flex-wrap gap-4 items-end">
-        <div className="min-w-[260px]">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Repo</div>
-          <Input value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="owner/repo" />
-        </div>
-
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-4 items-end">
         <div className="min-w-[200px]">
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Version</div>
           <Select value={toSelectValue(selectedVersion)} onValueChange={(v) => setSelectedVersion(fromSelectValue(v))}>
             <SelectTrigger>
-              <SelectValue placeholder="Latest Version" />
+              <SelectValue placeholder="All Versions" />
             </SelectTrigger>
-            <SelectContent>
-              {versions.map((v) => (
-                <SelectItem key={toSelectValue(v.targetVersion)} value={toSelectValue(v.targetVersion)}>
-                  {v.targetVersion ?? 'Unversioned'} ({v.issueCount})
-                </SelectItem>
-              ))}
-              {versions.length === 0 && (
-                <SelectItem value={UNVERSIONED}>Unversioned</SelectItem>
-              )}
+            <SelectContent className="overflow-hidden">
+              <div className="px-2 py-2 border-b border-gray-100 bg-white">
+                <Input
+                  placeholder="Search versions..."
+                  value={versionSearch}
+                  onChange={(e) => setVersionSearch(e.target.value)}
+                  className="h-8"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto">
+                <SelectItem value={ALL_VERSIONS}>-- All Versions --</SelectItem>
+                {filteredVersions.map((v) => (
+                  <SelectItem key={toSelectValue(v.targetVersion)} value={toSelectValue(v.targetVersion)}>
+                    {v.targetVersion ?? 'Unversioned'} ({v.issueCount})
+                  </SelectItem>
+                ))}
+                {filteredVersions.length === 0 && (
+                  <div className="px-2 py-2 text-sm text-gray-500">No matching versions</div>
+                )}
+              </div>
             </SelectContent>
           </Select>
         </div>
@@ -220,12 +287,27 @@ export function IssueClustersPage() {
             <SelectTrigger>
               <SelectValue placeholder="Select Product" />
             </SelectTrigger>
-            <SelectContent>
-              {products.map((p) => (
-                <SelectItem key={p.productLabel} value={p.productLabel}>
-                  {p.productLabel} ({p.issueCount})
-                </SelectItem>
-              ))}
+            <SelectContent className="overflow-hidden max-w-[300px]">
+              <div className="px-2 py-2 border-b border-gray-100 bg-white">
+                <Input
+                  placeholder="Search products..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="h-8"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto">
+                {filteredProducts.map((p) => (
+                  <SelectItem key={p.productLabel} value={p.productLabel} className="max-w-[280px]">
+                    <span className="truncate block">{p.productLabel} ({p.issueCount})</span>
+                  </SelectItem>
+                ))}
+                {filteredProducts.length === 0 && (
+                  <div className="px-2 py-2 text-sm text-gray-500">No matching products</div>
+                )}
+              </div>
             </SelectContent>
           </Select>
         </div>
@@ -239,10 +321,50 @@ export function IssueClustersPage() {
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Top K</div>
           <Input value={topK} onChange={(e) => setTopK(e.target.value)} />
         </div>
+        </div>
       </Card>
 
-      <div className="grid grid-cols-3 gap-6">
-        <Card className="col-span-2">
+      {/* Top Issues - horizontal scrollable cards */}
+      <Card>
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-gray-900">Top Issues</h2>
+            <p className="text-gray-500 text-sm">By reactions ({selectedVersion ?? 'Latest'})</p>
+          </div>
+          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+            {topIssues.length} issues
+          </Badge>
+        </div>
+        <div className="p-4 overflow-x-auto">
+          {topIssues.length > 0 ? (
+            <div className="flex gap-3">
+              {topIssues.map((issue) => (
+                <a
+                  key={issue.issueNumber}
+                  className="flex-shrink-0 w-64 p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                  href={`https://github.com/${repo}/issues/${issue.issueNumber}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <div className="text-sm text-gray-900 line-clamp-2 mb-2 h-10">{issue.title}</div>
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <span className="text-blue-600">#{issue.issueNumber}</span>
+                    <span>👍 {issue.reactionsCount}</span>
+                    <span>💬 {issue.commentsCount}</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 text-sm py-4">
+              No issues found for this version.
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Clusters */}
+      <Card>
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <div>
               <h2 className="text-gray-900">Clusters</h2>
@@ -265,8 +387,17 @@ export function IssueClustersPage() {
               {clusters.map((cluster) => (
                 <TableRow
                   key={cluster.clusterId}
-                  className={cluster.clusterId === selectedClusterId ? 'bg-gray-50' : 'cursor-pointer hover:bg-gray-50'}
-                  onClick={() => setSelectedClusterId(cluster.clusterId)}
+                  className="cursor-pointer hover:bg-gray-50"
+                  onClick={() => {
+                    const params = new URLSearchParams({
+                      product: selectedProduct ?? '',
+                      title: cluster.representativeTitle ?? '',
+                      issue: String(cluster.representativeIssueNumber ?? ''),
+                      size: String(cluster.size),
+                      popularity: String(cluster.popularity),
+                    });
+                    navigate(`/issues/clusters/${cluster.clusterId}?${params.toString()}`);
+                  }}
                 >
                   <TableCell>
                     <div className="space-y-1">
@@ -293,109 +424,6 @@ export function IssueClustersPage() {
             </TableBody>
           </Table>
         </Card>
-
-        <Card>
-          <div className="p-4 border-b border-gray-100">
-            <h2 className="text-gray-900">Sync Status</h2>
-            <p className="text-gray-500 text-sm">Issue synchronization progress</p>
-          </div>
-          <div className="p-4 space-y-3">
-            {syncStatus && (
-              <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm text-gray-900">
-                    {syncStatus.isSyncing ? 'Syncing...' : 'Idle'}
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {syncStatus.isSyncing ? 'running' : 'completed'}
-                  </Badge>
-                </div>
-                <div className="text-xs text-gray-500 mb-2">
-                  {syncStatus.currentCount.toLocaleString()} issues
-                  {syncStatus.estimatedTotal && ` / ~${syncStatus.estimatedTotal.toLocaleString()} estimated`}
-                </div>
-                {syncStatus.isSyncing && (
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
-                      <span>Progress</span>
-                      <span>{syncStatus.progress}%</span>
-                    </div>
-                    <Progress value={syncStatus.progress} className="h-2" />
-                  </div>
-                )}
-                {syncStatus.lastSyncedAt && (
-                  <div className="text-xs text-gray-400 mt-2">
-                    Last synced: {new Date(syncStatus.lastSyncedAt).toLocaleString()}
-                  </div>
-                )}
-              </div>
-            )}
-            {stats && (
-              <div className="p-3 rounded-lg border border-gray-200 bg-white">
-                <div className="text-xs text-gray-500">Indexed issues</div>
-                <div className="text-lg text-gray-900 font-semibold">{stats.totalIssues}</div>
-                <div className="mt-2 text-xs text-gray-500">Embedded open issues</div>
-                <div className="text-lg text-gray-900 font-semibold">
-                  {stats.embeddedOpenIssues} / {stats.openIssues}
-                </div>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <Card>
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <h2 className="text-gray-900">Cluster Issues</h2>
-            <p className="text-gray-500 text-sm">Ranked by similarity</p>
-          </div>
-          {selectedClusterId && (
-            <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-              {clusterIssues.length} issues
-            </Badge>
-          )}
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Issue</TableHead>
-              <TableHead className="w-24">State</TableHead>
-              <TableHead className="w-28">Similarity</TableHead>
-              <TableHead className="w-40">Updated</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {clusterIssues.map((issue) => (
-              <TableRow key={issue.issueNumber}>
-                <TableCell>
-                  <div className="space-y-1">
-                    <div className="text-sm text-gray-900">{issue.title}</div>
-                    <a
-                      className="text-xs text-blue-600 hover:underline"
-                      href={`https://github.com/${repo}/issues/${issue.issueNumber}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      #{issue.issueNumber}
-                    </a>
-                  </div>
-                </TableCell>
-                <TableCell className="capitalize">{issue.state}</TableCell>
-                <TableCell>{issue.similarity.toFixed(3)}</TableCell>
-                <TableCell>{new Date(issue.updatedAt).toLocaleString()}</TableCell>
-              </TableRow>
-            ))}
-            {clusterIssues.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                  Select a cluster to view its issues.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
     </div>
   );
 }

@@ -8,14 +8,17 @@ import { SessionHotspotsPage } from './pages/SessionHotspotsPage';
 import { SessionTestPlanPage } from './pages/SessionTestPlanPage';
 import { SessionExportsPage } from './pages/SessionExportsPage';
 import { SessionProvider } from './context/SessionContext';
+import { RepoProvider } from './context/RepoContext';
 import { IssueClustersPage } from './pages/IssueClustersPage';
+import { ClusterDetailPage } from './pages/ClusterDetailPage';
 
 export default function App() {
   return (
-    <SessionProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
+    <RepoProvider>
+      <SessionProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="sessions" element={<SessionsPage />} />
             <Route path="sessions/:sessionId/changes" element={<SessionChangesPage />} />
@@ -24,6 +27,7 @@ export default function App() {
             <Route path="sessions/:sessionId/test-plan" element={<SessionTestPlanPage />} />
             <Route path="sessions/:sessionId/exports" element={<SessionExportsPage />} />
             <Route path="issues" element={<IssueClustersPage />} />
+            <Route path="issues/clusters/:clusterId" element={<ClusterDetailPage />} />
             {/* Redirect old routes */}
             <Route path="runs" element={<Navigate to="/sessions" replace />} />
             <Route path="runs/:sessionId/*" element={<Navigate to="/sessions" replace />} />
@@ -39,5 +43,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </SessionProvider>
+    </RepoProvider>
   );
 }
