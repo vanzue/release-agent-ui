@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Progress } from '../components/ui/progress';
+import { IssueClustersPageSkeleton } from '../components/skeletons/ArtifactSkeletons';
 import { createReleaseAgentApi } from '../api/releaseAgentApi';
 import type { ApiIssueCluster, ApiIssueProduct, ApiIssueStats, ApiIssueSyncStatus, ApiIssueVersion, ApiTopIssue } from '../api/types';
 import { useRepo } from '../context/RepoContext';
@@ -209,6 +210,11 @@ export function IssueClustersPage() {
       setError(message);
     }
   };
+
+  // Show skeleton on initial load
+  if (isLoading && versions.length === 0 && products.length === 0) {
+    return <IssueClustersPageSkeleton />;
+  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">

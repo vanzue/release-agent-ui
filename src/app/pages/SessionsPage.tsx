@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { RefSearchCombobox } from '../components/ui/ref-search-combobox';
 import { JobPipeline } from '../components/ui/job-pipeline';
 import { CommitRange } from '../components/ui/commit-range';
+import { SessionsPageSkeleton } from '../components/skeletons/ArtifactSkeletons';
 import { useSessions } from '../context/SessionContext';
 import { Plus, ChevronRight, RefreshCw, Layers, Trash2, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -67,6 +68,11 @@ export function SessionsPage() {
   };
 
   const sorted = useMemo(() => [...sessions].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()), [sessions]);
+
+  // Show skeleton on initial load (no sessions yet and loading)
+  if (isLoading && sessions.length === 0) {
+    return <SessionsPageSkeleton />;
+  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
