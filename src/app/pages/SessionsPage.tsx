@@ -63,6 +63,7 @@ export function SessionsPage() {
       generating: 'bg-blue-100 text-blue-700 border-blue-300',
       ready: 'bg-green-100 text-green-700 border-green-300',
       exported: 'bg-purple-100 text-purple-700 border-purple-300',
+      failed: 'bg-red-100 text-red-700 border-red-300',
     };
     return colors[status] || 'bg-gray-100 text-gray-700 border-gray-300';
   };
@@ -123,7 +124,7 @@ export function SessionsPage() {
                     <span className="font-medium">{session.repoFullName}</span>
                     <CommitRange baseRef={session.baseRef} headRef={session.headRef} size="sm" />
                   </div>
-                  {session.status === 'generating' && session.jobs.length > 0 && (
+                  {(session.status === 'generating' || session.status === 'failed') && session.jobs.length > 0 && (
                     <JobPipeline jobs={session.jobs} />
                   )}
                   <div className="text-sm text-gray-500">
@@ -144,6 +145,10 @@ export function SessionsPage() {
                     <Button variant="outline" className="gap-2" disabled>
                       Generating...
                       <Loader2 className="h-4 w-4 animate-spin" />
+                    </Button>
+                  ) : session.status === 'failed' ? (
+                    <Button variant="outline" className="gap-2 text-red-600 border-red-200 hover:bg-red-50" disabled>
+                      Failed
                     </Button>
                   ) : (
                     <Link to={`/sessions/${session.id}/changes`}>

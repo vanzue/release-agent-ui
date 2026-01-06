@@ -20,6 +20,7 @@ export function Header() {
       case 'generating': return 'bg-blue-50 text-blue-600 border-blue-200';
       case 'ready': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
       case 'exported': return 'bg-violet-50 text-violet-600 border-violet-200';
+      case 'failed': return 'bg-red-50 text-red-600 border-red-200';
       default: return 'bg-slate-50 text-slate-600 border-slate-200';
     }
   };
