@@ -11,6 +11,7 @@ import { SessionProvider } from './context/SessionContext';
 import { RepoProvider } from './context/RepoContext';
 import { IssueClustersPage } from './pages/IssueClustersPage';
 import { ClusterDetailPage } from './pages/ClusterDetailPage';
+import { IssueSemanticSearchPage } from './pages/IssueSemanticSearchPage';
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="sessions/:sessionId/exports" element={<SessionExportsPage />} />
             <Route path="issues" element={<IssueClustersPage />} />
             <Route path="issues/clusters/:clusterId" element={<ClusterDetailPage />} />
+            <Route path="issues/search" element={<IssueSemanticSearchPage />} />
             {/* Redirect old routes */}
             <Route path="runs" element={<Navigate to="/sessions" replace />} />
             <Route path="runs/:sessionId/*" element={<Navigate to="/sessions" replace />} />

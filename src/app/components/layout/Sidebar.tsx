@@ -1,5 +1,5 @@
 import { NavLink, useParams } from 'react-router-dom';
-import { Home, Activity, GitBranch, FileText, CheckSquare, Archive, Flame, Layers } from 'lucide-react';
+import { Home, Activity, GitBranch, FileText, CheckSquare, Archive, Flame, Layers, Search } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { useSessions } from '../../context/SessionContext';
 import { JobPipeline } from '../ui/job-pipeline';
@@ -17,6 +17,7 @@ export function Sidebar() {
     { to: '/', icon: Home, label: 'Dashboard' },
     { to: '/sessions', icon: Activity, label: 'Release Drafts' },
     { to: '/issues', icon: Layers, label: 'Issue Clusters' },
+    { to: '/issues/search', icon: Search, label: 'Issue Search' },
   ];
 
   const sessionNavItems = showSessionNav ? [

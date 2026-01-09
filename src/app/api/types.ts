@@ -250,3 +250,28 @@ export type ApiTopIssuesResponse = {
   targetVersion: string | null;
   issues: ApiTopIssue[];
 };
+
+export type ApiSimilarIssue = {
+  issueNumber: number;
+  title: string;
+  state: 'open' | 'closed';
+  similarity: number;
+  productLabels: string[];
+  updatedAt: string;
+};
+
+export type ApiSimilarIssuesResponse = {
+  issueNumber: number;
+  productLabel: string | null;
+  minSimilarity: number;
+  similarIssues: ApiSimilarIssue[];
+};
+
+export type ApiSemanticSearchResponse = {
+  mode: 'issue' | 'query';
+  issueNumber: number | null;
+  query: string | null;
+  productLabel: string | null;
+  minSimilarity: number;
+  results: ApiSimilarIssue[];
+};
