@@ -12,39 +12,47 @@ import { RepoProvider } from './context/RepoContext';
 import { IssueClustersPage } from './pages/IssueClustersPage';
 import { ClusterDetailPage } from './pages/ClusterDetailPage';
 import { IssueSemanticSearchPage } from './pages/IssueSemanticSearchPage';
+import { IssueSyncAdminPage } from './pages/IssueSyncAdminPage';
+import { AuthProvider } from './context/AuthContext';
+import { AuthGate } from './components/auth/AuthGate';
 
 export default function App() {
   return (
-    <RepoProvider>
-      <SessionProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-            <Route index element={<DashboardPage />} />
-            <Route path="sessions" element={<SessionsPage />} />
-            <Route path="sessions/:sessionId/changes" element={<SessionChangesPage />} />
-            <Route path="sessions/:sessionId/release-notes" element={<SessionReleaseNotesPage />} />
-            <Route path="sessions/:sessionId/hotspots" element={<SessionHotspotsPage />} />
-            <Route path="sessions/:sessionId/test-plan" element={<SessionTestPlanPage />} />
-            <Route path="sessions/:sessionId/exports" element={<SessionExportsPage />} />
-            <Route path="issues" element={<IssueClustersPage />} />
-            <Route path="issues/clusters/:clusterId" element={<ClusterDetailPage />} />
-            <Route path="issues/search" element={<IssueSemanticSearchPage />} />
-            {/* Redirect old routes */}
-            <Route path="runs" element={<Navigate to="/sessions" replace />} />
-            <Route path="runs/:sessionId/*" element={<Navigate to="/sessions" replace />} />
-            <Route path="changes" element={<Navigate to="/" replace />} />
-            <Route path="release-notes" element={<Navigate to="/" replace />} />
-            <Route path="hotspots" element={<Navigate to="/" replace />} />
-            <Route path="test-plan" element={<Navigate to="/" replace />} />
-            <Route path="exports" element={<Navigate to="/" replace />} />
-            <Route path="create-draft" element={<Navigate to="/sessions" replace />} />
-            {/* Catch all - redirect to dashboard */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </SessionProvider>
-    </RepoProvider>
+    <AuthProvider>
+      <AuthGate>
+        <RepoProvider>
+          <SessionProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="sessions" element={<SessionsPage />} />
+                <Route path="sessions/:sessionId/changes" element={<SessionChangesPage />} />
+                <Route path="sessions/:sessionId/release-notes" element={<SessionReleaseNotesPage />} />
+                <Route path="sessions/:sessionId/hotspots" element={<SessionHotspotsPage />} />
+                <Route path="sessions/:sessionId/test-plan" element={<SessionTestPlanPage />} />
+                <Route path="sessions/:sessionId/exports" element={<SessionExportsPage />} />
+                <Route path="issues" element={<IssueClustersPage />} />
+                <Route path="issues/clusters/:clusterId" element={<ClusterDetailPage />} />
+                <Route path="issues/search" element={<IssueSemanticSearchPage />} />
+                <Route path="issues/sync-admin" element={<IssueSyncAdminPage />} />
+                {/* Redirect old routes */}
+                <Route path="runs" element={<Navigate to="/sessions" replace />} />
+                <Route path="runs/:sessionId/*" element={<Navigate to="/sessions" replace />} />
+                <Route path="changes" element={<Navigate to="/" replace />} />
+                <Route path="release-notes" element={<Navigate to="/" replace />} />
+                <Route path="hotspots" element={<Navigate to="/" replace />} />
+                <Route path="test-plan" element={<Navigate to="/" replace />} />
+                <Route path="exports" element={<Navigate to="/" replace />} />
+                <Route path="create-draft" element={<Navigate to="/sessions" replace />} />
+                {/* Catch all - redirect to dashboard */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </SessionProvider>
+        </RepoProvider>
+      </AuthGate>
+    </AuthProvider>
   );
 }

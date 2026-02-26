@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { Settings, HelpCircle, User, Sparkles, ChevronRight, GitBranch } from 'lucide-react';
+import { Settings, HelpCircle, User, Sparkles, ChevronRight, GitBranch, LogOut } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback } from '../ui/avatar';
@@ -7,11 +7,13 @@ import { Input } from '../ui/input';
 import { useSessions } from '../../context/SessionContext';
 import { useRepo } from '../../context/RepoContext';
 import { ShipwiseIcon } from '../icons/ShipwiseIcon';
+import { useAuth } from '../../context/AuthContext';
 
 export function Header() {
   const { sessionId } = useParams<{ sessionId?: string }>();
   const { sessions } = useSessions();
   const { repo, setRepo } = useRepo();
+  const { user, signOut } = useAuth();
   const session = sessions.find((s) => s.id === sessionId);
 
   const getSessionStatusColor = (status: string) => {
@@ -77,9 +79,21 @@ export function Header() {
         <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-900 hover:bg-gray-100">
           <HelpCircle className="h-5 w-5" />
         </Button>
+        <span className="text-xs text-gray-600 ml-2 hidden sm:inline">@{user?.login ?? 'unknown'}</span>
+        {user?.source !== 'access-control-disabled' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+            onClick={signOut}
+            title="Sign out"
+          >
+            <LogOut className="h-5 w-5" />
+          </Button>
+        )}
         <Avatar className="h-8 w-8 ml-2 ring-2 ring-gray-100 hover:ring-gray-200 transition-all cursor-pointer">
           <AvatarFallback className="bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600">
-            <User className="h-4 w-4" />
+            {user?.login?.[0] ? user.login[0].toUpperCase() : <User className="h-4 w-4" />}
           </AvatarFallback>
         </Avatar>
       </div>

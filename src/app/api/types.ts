@@ -231,6 +231,30 @@ export type ApiIssueSyncStatus = {
   lastSyncedAt: string | null;
 };
 
+export type ApiIssueSyncResetMode = 'soft' | 'hard';
+
+export type ApiIssueSyncResetRequest = {
+  repoFullName: string;
+  mode: ApiIssueSyncResetMode;
+  queueFullSync?: boolean;
+};
+
+export type ApiIssueSyncResetResult = {
+  status: 'ok';
+  mode: ApiIssueSyncResetMode;
+  queueAvailable: boolean;
+  queuedFullSync: boolean;
+  reset: {
+    mode: ApiIssueSyncResetMode;
+    clearedEmbeddings: number;
+    deletedIssueClusterMap: number;
+    deletedClusters: number;
+    deletedIssueProducts: number;
+    deletedIssues: number;
+    deletedSyncStateRows: number;
+  };
+};
+
 export type ApiIssueStats = {
   totalIssues: number;
   openIssues: number;

@@ -10,6 +10,8 @@ import type {
   ApiIssueSearchResponse,
   ApiIssueStats,
   ApiIssueSyncStatus,
+  ApiIssueSyncResetRequest,
+  ApiIssueSyncResetResult,
   ApiIssueVersionsResponse,
   ApiTopIssuesResponse,
   ApiSimilarIssuesResponse,
@@ -116,6 +118,8 @@ export function createReleaseAgentApi(baseUrl: string) {
     },
     enqueueIssueSync: (repoFullName: string, fullSync?: boolean) =>
       requestJson<{ status: string }>(baseUrl, `/issues/sync`, { method: 'POST', body: { repoFullName, fullSync } }),
+    resetAndQueueIssueSync: (body: ApiIssueSyncResetRequest) =>
+      requestJson<ApiIssueSyncResetResult>(baseUrl, `/issues/sync-reset`, { method: 'POST', body }),
     enqueueIssueRecluster: (body: {
       repoFullName: string;
       targetVersion: string | null;

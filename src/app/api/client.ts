@@ -1,3 +1,5 @@
+import { getStoredGithubToken } from '../auth/tokenStorage';
+
 export type ApiError = {
   status: number;
   message: string;
@@ -24,11 +26,13 @@ export async function requestJson<T>(
   init?: RequestInit & { body?: unknown }
 ): Promise<T> {
   const url = joinUrl(baseUrl, path);
+  const token = getStoredGithubToken();
 
   const res = await fetch(url, {
     ...init,
     headers: {
       accept: 'application/json',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(init?.body !== undefined ? { 'content-type': 'application/json' } : {}),
       ...(init?.headers ?? {}),
     },
@@ -53,4 +57,3 @@ export async function requestJson<T>(
 
   return (await res.json()) as T;
 }
-
