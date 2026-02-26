@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -6,7 +6,6 @@ import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Progress } from '../components/ui/progress';
 import { IssueClustersPageSkeleton } from '../components/skeletons/ArtifactSkeletons';
 import { createReleaseAgentApi } from '../api/releaseAgentApi';
 import type { ApiIssueCluster, ApiIssueProduct, ApiIssueStats, ApiIssueSyncStatus, ApiIssueVersion, ApiTopIssue } from '../api/types';
@@ -16,6 +15,7 @@ const UNVERSIONED = '__unversioned__';
 const ALL_VERSIONS = '__all__';
 const VERSION_STORAGE_KEY = 'release-agent:selectedVersion';
 const PRODUCT_STORAGE_KEY = 'release-agent:selectedProduct';
+const CLUSTER_PAGE_LIMIT = 120;
 
 function toSelectValue(v: string | null | undefined) {
   if (v === undefined) return ALL_VERSIONS;
@@ -64,12 +64,22 @@ export function IssueClustersPage() {
   const [syncStatus, setSyncStatus] = useState<ApiIssueSyncStatus | null>(null);
   const [stats, setStats] = useState<ApiIssueStats | null>(null);
   const [topIssues, setTopIssues] = useState<ApiTopIssue[]>([]);
+  const [isTopIssuesLoading, setIsTopIssuesLoading] = useState(false);
+  const [isClustersLoading, setIsClustersLoading] = useState(false);
+  const [clustersTruncated, setClustersTruncated] = useState(false);
+  const [clusterFetchLimit, setClusterFetchLimit] = useState(CLUSTER_PAGE_LIMIT);
   const [versionSearch, setVersionSearch] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [threshold, setThreshold] = useState('0.86');
   const [topK, setTopK] = useState('10');
   const [error, setError] = useState<string | null>(null);
+  const topIssuesCacheRef = useRef(new Map<string, ApiTopIssue[]>());
+  const clustersCacheRef = useRef(
+    new Map<string, { clusters: ApiIssueCluster[]; isTruncated: boolean; limit: number }>()
+  );
+  const topIssuesRequestIdRef = useRef(0);
+  const clustersRequestIdRef = useRef(0);
 
   const loadVersions = async () => {
     if (!api) return;
@@ -96,13 +106,49 @@ export function IssueClustersPage() {
     }
   };
 
-  const loadClusters = async (_version: string | null, productLabel: string | null) => {
+  const loadClusters = async (_version: string | null | undefined, productLabel: string | null) => {
     if (!api || !productLabel) {
       setClusters([]);
+      setClustersTruncated(false);
       return;
     }
-    const res = await api.listIssueClusters(repo, productLabel, null);
-    setClusters(res.clusters ?? []);
+
+    const key = `${repo}|${_version ?? '__all__'}|${productLabel}`;
+    const cached = clustersCacheRef.current.get(key);
+    if (cached) {
+      setClusters(cached.clusters);
+      setClustersTruncated(cached.isTruncated);
+      setClusterFetchLimit(cached.limit);
+    }
+
+    const requestId = ++clustersRequestIdRef.current;
+    if (!cached) setIsClustersLoading(true);
+
+    try {
+      const res = await api.listIssueClusters(repo, productLabel, null, CLUSTER_PAGE_LIMIT);
+      if (requestId !== clustersRequestIdRef.current) return;
+
+      const nextClusters = res.clusters ?? [];
+      const nextIsTruncated = Boolean(res.isTruncated);
+      const nextLimit = res.limit ?? CLUSTER_PAGE_LIMIT;
+
+      setClusters(nextClusters);
+      setClustersTruncated(nextIsTruncated);
+      setClusterFetchLimit(nextLimit);
+      clustersCacheRef.current.set(key, {
+        clusters: nextClusters,
+        isTruncated: nextIsTruncated,
+        limit: nextLimit,
+      });
+    } catch (e: unknown) {
+      if (requestId !== clustersRequestIdRef.current) return;
+      const message = e && typeof e === 'object' && 'message' in e ? String((e as any).message) : 'Failed to load clusters';
+      setError(message);
+    } finally {
+      if (requestId === clustersRequestIdRef.current) {
+        setIsClustersLoading(false);
+      }
+    }
   };
 
   const loadSyncStatus = async () => {
@@ -119,8 +165,31 @@ export function IssueClustersPage() {
 
   const loadTopIssues = async (version: string | null | undefined, productLabel: string | null) => {
     if (!api) return;
-    const res = await api.getTopIssuesByReactions(repo, version, productLabel ?? undefined, 20);
-    setTopIssues(res.issues ?? []);
+
+    const key = `${repo}|${version ?? '__all__'}|${productLabel ?? '__all__'}`;
+    const cached = topIssuesCacheRef.current.get(key);
+    if (cached) {
+      setTopIssues(cached);
+    }
+
+    const requestId = ++topIssuesRequestIdRef.current;
+    if (!cached) setIsTopIssuesLoading(true);
+
+    try {
+      const res = await api.getTopIssuesByReactions(repo, version, productLabel ?? undefined, 20);
+      if (requestId !== topIssuesRequestIdRef.current) return;
+      const nextIssues = res.issues ?? [];
+      setTopIssues(nextIssues);
+      topIssuesCacheRef.current.set(key, nextIssues);
+    } catch (e: unknown) {
+      if (requestId !== topIssuesRequestIdRef.current) return;
+      const message = e && typeof e === 'object' && 'message' in e ? String((e as any).message) : 'Failed to load top issues';
+      setError(message);
+    } finally {
+      if (requestId === topIssuesRequestIdRef.current) {
+        setIsTopIssuesLoading(false);
+      }
+    }
   };
 
   const filteredVersions = useMemo(() => {
@@ -141,13 +210,17 @@ export function IssueClustersPage() {
 
   useEffect(() => {
     if (!api) return;
+    topIssuesCacheRef.current.clear();
+    clustersCacheRef.current.clear();
+    setTopIssues([]);
+    setClusters([]);
+    setClustersTruncated(false);
+    setClusterFetchLimit(CLUSTER_PAGE_LIMIT);
     setIsLoading(true);
     setError(null);
     void (async () => {
       try {
-        await loadVersions();
-        await loadSyncStatus();
-        await loadStats();
+        await Promise.all([loadVersions(), loadSyncStatus(), loadStats()]);
       } catch (e: unknown) {
         const message = e && typeof e === 'object' && 'message' in e ? String((e as any).message) : 'Failed to load';
         setError(message);
@@ -172,10 +245,8 @@ export function IssueClustersPage() {
 
   useEffect(() => {
     if (!api) return;
-    void (async () => {
-      await loadTopIssues(selectedVersion, selectedProduct);
-      await loadClusters(selectedVersion, selectedProduct);
-    })();
+    void loadTopIssues(selectedVersion, selectedProduct);
+    void loadClusters(selectedVersion, selectedProduct);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, selectedVersion, selectedProduct]);
 
@@ -338,10 +409,15 @@ export function IssueClustersPage() {
             <p className="text-gray-500 text-sm">By reactions ({selectedVersion ?? 'Latest'})</p>
           </div>
           <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-            {topIssues.length} issues
+            {isTopIssuesLoading ? 'Loading...' : `${topIssues.length} issues`}
           </Badge>
         </div>
         <div className="p-4 overflow-x-auto">
+          {isTopIssuesLoading && topIssues.length === 0 ? (
+            <div className="text-center text-gray-500 text-sm py-4">
+              Loading top issues...
+            </div>
+          ) : null}
           {topIssues.length > 0 ? (
             <div className="flex gap-3">
               {topIssues.map((issue) => (
@@ -374,10 +450,13 @@ export function IssueClustersPage() {
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <div>
               <h2 className="text-gray-900">Clusters</h2>
-              <p className="text-gray-500 text-sm">Ordered by popularity</p>
+              <p className="text-gray-500 text-sm">
+                Ordered by popularity
+                {clustersTruncated ? ` (showing first ${clusterFetchLimit})` : ''}
+              </p>
             </div>
             <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-              {clusters.length} clusters
+              {isClustersLoading ? 'Loading...' : `${clusters.length} clusters`}
             </Badge>
           </div>
           <Table>
@@ -390,6 +469,13 @@ export function IssueClustersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isClustersLoading && clusters.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-gray-500 py-10">
+                    Loading clusters...
+                  </TableCell>
+                </TableRow>
+              )}
               {clusters.map((cluster) => (
                 <TableRow
                   key={cluster.clusterId}

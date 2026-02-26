@@ -187,6 +187,8 @@ export type ApiIssueClustersResponse = {
   defaultTargetVersion: string | null;
   productLabel: string;
   clusters: ApiIssueCluster[];
+  isTruncated?: boolean;
+  limit?: number;
 };
 
 export type ApiIssueClusterDetails = {

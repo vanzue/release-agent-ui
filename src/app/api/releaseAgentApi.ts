@@ -76,8 +76,9 @@ export function createReleaseAgentApi(baseUrl: string) {
       }
       return requestJson<ApiIssueProductsResponse>(baseUrl, `/issues/products?${params.toString()}`);
     },
-    listIssueClusters: (repo: string, productLabel: string, _targetVersion?: string | null) => {
+    listIssueClusters: (repo: string, productLabel: string, _targetVersion?: string | null, limit?: number) => {
       const params = new URLSearchParams({ repo, productLabel });
+      if (limit !== undefined) params.set('limit', String(limit));
       return requestJson<ApiIssueClustersResponse>(baseUrl, `/issues/clusters?${params.toString()}`);
     },
     getIssueCluster: (repo: string, clusterId: string) =>
