@@ -16,6 +16,7 @@ import type {
   ApiTopIssuesResponse,
   ApiSimilarIssuesResponse,
   ApiSemanticSearchResponse,
+  ApiIssueDashboardResponse,
   ApiJob,
   ApiListResponse,
   ApiPatchReleaseNotesRequest,
@@ -107,6 +108,17 @@ export function createReleaseAgentApi(baseUrl: string) {
       requestJson<ApiIssueSyncStatus>(baseUrl, `/issues/sync-status?repo=${encodeURIComponent(repo)}`),
     getIssueStats: (repo: string) =>
       requestJson<ApiIssueStats>(baseUrl, `/issues/stats?repo=${encodeURIComponent(repo)}`),
+    getIssueDashboard: (repo: string, options?: {
+      semanticLimit?: number;
+      issuesPerSemantic?: number;
+      minSimilarity?: number;
+    }) => {
+      const params = new URLSearchParams({ repo });
+      if (options?.semanticLimit !== undefined) params.set('semanticLimit', String(options.semanticLimit));
+      if (options?.issuesPerSemantic !== undefined) params.set('issuesPerSemantic', String(options.issuesPerSemantic));
+      if (options?.minSimilarity !== undefined) params.set('minSimilarity', String(options.minSimilarity));
+      return requestJson<ApiIssueDashboardResponse>(baseUrl, `/issues/dashboard?${params.toString()}`);
+    },
     getTopIssuesByReactions: (repo: string, targetVersion?: string | null, productLabel?: string, limit?: number) => {
       const params = new URLSearchParams({ repo });
       if (targetVersion !== undefined) {

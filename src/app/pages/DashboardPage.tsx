@@ -1,114 +1,197 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { ShipwiseIcon } from '../components/icons/ShipwiseIcon';
-import { 
-  Layers,
-  FileText,
-  ArrowRight,
-  GitBranch,
-  TestTube,
-  AlertTriangle
-} from 'lucide-react';
+import { Card } from '../components/ui/card';
+import { createReleaseAgentApi } from '../api/releaseAgentApi';
+import type { ApiIssueDashboardResponse } from '../api/types';
+import { useRepo } from '../context/RepoContext';
 
 export function DashboardPage() {
-  const features = [
-    {
-      icon: <FileText className="h-6 w-6" />,
-      title: 'Release Notes',
-      description: 'Auto-generate comprehensive release notes from your commits',
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
-    },
-    {
-      icon: <AlertTriangle className="h-6 w-6" />,
-      title: 'Hotspots Analysis',
-      description: 'Identify high-risk areas that need extra testing attention',
-      color: 'text-amber-600',
-      bg: 'bg-amber-50',
-    },
-    {
-      icon: <TestTube className="h-6 w-6" />,
-      title: 'Test Plan Generation',
-      description: 'Generate targeted test plans based on code changes',
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50',
-    },
-    {
-      icon: <GitBranch className="h-6 w-6" />,
-      title: 'Commit Intelligence',
-      description: 'Deep analysis of commits with AI-powered summaries',
-      color: 'text-violet-600',
-      bg: 'bg-violet-50',
-    },
-  ];
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+  const api = useMemo(() => (apiBaseUrl ? createReleaseAgentApi(apiBaseUrl) : null), [apiBaseUrl]);
+  const { repo } = useRepo();
+
+  const [dashboard, setDashboard] = useState<ApiIssueDashboardResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDashboard = async () => {
+    if (!api) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.getIssueDashboard(repo, {
+        semanticLimit: 6,
+        issuesPerSemantic: 8,
+        minSimilarity: 0.84,
+      });
+      setDashboard(response);
+    } catch (e: unknown) {
+      const message =
+        e && typeof e === 'object' && 'message' in e ? String((e as any).message) : 'Failed to load dashboard';
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [api, repo]);
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-12">
-      {/* Hero Section */}
-      <div className="text-center space-y-6 py-8">
-        <div className="flex justify-center">
-          <ShipwiseIcon size={80} className="text-gray-900" />
+    <div className="p-8 max-w-7xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-gray-900 mb-2">Issue Semantic Dashboard</h1>
+          <p className="text-gray-600">Latest release hotspots grouped by semantic similarity.</p>
         </div>
-        <div className="space-y-3">
-          <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
-            Shipwise
-          </h1>
-          <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-            AI-powered release management that generates release notes, identifies hotspots, and creates test plans from your commits.
-          </p>
-        </div>
-        <div className="pt-4">
-          <Link to="/sessions">
-            <Button variant="dark" size="lg" className="gap-2 shadow-lg hover:shadow-xl text-lg px-8 py-6">
-              Get Started
-              <ArrowRight className="h-5 w-5" />
-            </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={loadDashboard} disabled={isLoading}>
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Link to="/issues">
+            <Button className="bg-gray-900 text-white hover:bg-gray-800">Open Clusters</Button>
           </Link>
         </div>
       </div>
 
-      {/* Features Grid */}
-      <div className="space-y-6">
-        <h2 className="text-2xl font-semibold text-gray-900 text-center">Features</h2>
-        <div className="grid grid-cols-2 gap-6">
-          {features.map((feature) => (
-            <Card 
-              key={feature.title} 
-              className="p-6 hover:shadow-lg transition-all duration-200 group cursor-default"
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant="outline" className="bg-gray-50 border-gray-200">
+            Repo: {repo}
+          </Badge>
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            Latest version: {dashboard?.latestRelease.version ?? 'N/A'}
+          </Badge>
+          {dashboard?.latestRelease.tag && (
+            <Badge variant="outline" className="bg-gray-50 border-gray-200">
+              Tag: {dashboard.latestRelease.tag}
+            </Badge>
+          )}
+          {dashboard?.latestRelease.publishedAt && (
+            <Badge variant="outline" className="bg-gray-50 border-gray-200">
+              Published: {new Date(dashboard.latestRelease.publishedAt).toLocaleDateString()}
+            </Badge>
+          )}
+          <Badge variant="outline" className="bg-gray-50 border-gray-200">
+            Source: {dashboard?.latestRelease.source ?? 'none'}
+          </Badge>
+          {dashboard?.latestRelease.url && (
+            <a
+              href={dashboard.latestRelease.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-blue-600 hover:underline"
             >
-              <div className="flex gap-4">
-                <div className={`p-3 rounded-xl ${feature.bg} ${feature.color} group-hover:scale-110 transition-transform duration-200`}>
-                  {feature.icon}
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{feature.title}</h3>
-                  <p className="text-gray-500 text-sm">{feature.description}</p>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Start */}
-      <Card className="p-8 bg-gradient-to-br from-gray-50 to-white border-dashed border-2">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-gray-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Ready to analyze your repository?</h3>
-            </div>
-            <p className="text-gray-500">Create a release draft to start generating release artifacts.</p>
-          </div>
-          <Link to="/sessions">
-            <Button variant="dark" className="gap-2">
-              Go to Release Drafts
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+              View release
+            </a>
+          )}
         </div>
       </Card>
+
+      <Card className="p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-gray-900">Hottest Issue</h2>
+            <p className="text-gray-500 text-sm">Most active issue in latest release scope.</p>
+          </div>
+          {dashboard?.hottestIssue && (
+            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+              Score {dashboard.hottestIssue.hotScore.toFixed(2)}
+            </Badge>
+          )}
+        </div>
+
+        {dashboard?.hottestIssue ? (
+          <div className="mt-4 space-y-2">
+            <a
+              href={`https://github.com/${repo}/issues/${dashboard.hottestIssue.issueNumber}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-blue-700 hover:underline"
+            >
+              #{dashboard.hottestIssue.issueNumber} {dashboard.hottestIssue.title}
+            </a>
+            <div className="text-sm text-gray-600">
+              {dashboard.hottestIssue.state} | reactions {dashboard.hottestIssue.reactionsCount} | comments {dashboard.hottestIssue.commentsCount} | Updated{' '}
+              {new Date(dashboard.hottestIssue.updatedAt).toLocaleDateString()}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 text-sm text-gray-500">No hottest issue found for latest release.</div>
+        )}
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {(dashboard?.semanticGroups ?? []).map((group) => (
+          <Card key={group.semanticId} className="p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-sm text-gray-500">Semantic Group</div>
+                <a
+                  href={`https://github.com/${repo}/issues/${group.representativeIssueNumber}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-gray-900 hover:text-blue-700"
+                >
+                  #{group.representativeIssueNumber} {group.representativeTitle}
+                </a>
+              </div>
+              <div className="text-right">
+                <div className="text-xl font-semibold text-gray-900">{group.issueCount}</div>
+                <div className="text-xs text-gray-500">issues</div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="bg-gray-50 border-gray-200">
+                Open {group.openIssueCount}/{group.issueCount}
+              </Badge>
+              <Badge variant="outline" className="bg-gray-50 border-gray-200">
+                Hot {group.hotScore.toFixed(2)}
+              </Badge>
+              {group.productLabel && (
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                  {group.productLabel}
+                </Badge>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {group.issues.map((issue) => (
+                <a
+                  key={issue.issueNumber}
+                  href={`https://github.com/${repo}/issues/${issue.issueNumber}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-lg border border-gray-200 p-3 hover:border-gray-300 hover:bg-gray-50"
+                >
+                  <div className="text-sm text-gray-900 truncate">
+                    #{issue.issueNumber} {issue.title}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {issue.state} | sim {(issue.similarity * 100).toFixed(1)}% | reactions {issue.reactionsCount} | comments {issue.commentsCount}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {dashboard && dashboard.semanticGroups.length === 0 && !isLoading && (
+        <Card className="p-8 text-center text-gray-500">
+          No semantic groups found for latest release. Run issue sync/embedding and try again.
+        </Card>
+      )}
     </div>
   );
 }

@@ -299,3 +299,45 @@ export type ApiSemanticSearchResponse = {
   minSimilarity: number;
   results: ApiSimilarIssue[];
 };
+
+export type ApiIssueDashboardResponse = {
+  latestRelease: {
+    tag: string | null;
+    name: string | null;
+    url: string | null;
+    publishedAt: string | null;
+    version: string | null;
+    versionCandidates: string[];
+    source: 'github_release' | 'issues_fallback' | 'none';
+  };
+  hottestIssue: {
+    issueNumber: number;
+    title: string;
+    state: 'open' | 'closed';
+    updatedAt: string;
+    reactionsCount: number;
+    commentsCount: number;
+    hotScore: number;
+    productLabels: string[];
+  } | null;
+  semanticGroups: Array<{
+    semanticId: string;
+    productLabel: string | null;
+    representativeIssueNumber: number;
+    representativeTitle: string;
+    hotScore: number;
+    issueCount: number;
+    openIssueCount: number;
+    issues: Array<{
+      issueNumber: number;
+      title: string;
+      state: 'open' | 'closed';
+      updatedAt: string;
+      reactionsCount: number;
+      commentsCount: number;
+      similarity: number;
+      productLabels: string[];
+    }>;
+  }>;
+  generatedAt: string;
+};
