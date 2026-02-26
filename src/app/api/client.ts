@@ -1,4 +1,4 @@
-import { getStoredGithubToken } from '../auth/tokenStorage';
+import { getStoredAuthToken } from '../auth/tokenStorage';
 
 export type ApiError = {
   status: number;
@@ -26,7 +26,7 @@ export async function requestJson<T>(
   init?: RequestInit & { body?: unknown }
 ): Promise<T> {
   const url = joinUrl(baseUrl, path);
-  const token = getStoredGithubToken();
+  const token = getStoredAuthToken();
 
   const res = await fetch(url, {
     ...init,

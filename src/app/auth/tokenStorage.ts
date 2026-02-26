@@ -1,18 +1,23 @@
-const GITHUB_TOKEN_KEY = 'release-agent.github-token';
+const AUTH_TOKEN_KEY = 'release-agent.auth-token';
+const LEGACY_GITHUB_TOKEN_KEY = 'release-agent.github-token';
 
-export function getStoredGithubToken(): string | null {
+export function getStoredAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  const token = window.localStorage.getItem(GITHUB_TOKEN_KEY);
-  return token && token.trim().length > 0 ? token.trim() : null;
+  const token =
+    window.localStorage.getItem(AUTH_TOKEN_KEY) ??
+    window.localStorage.getItem(LEGACY_GITHUB_TOKEN_KEY);
+  if (!token || token.trim().length === 0) return null;
+  return token.trim();
 }
 
-export function setStoredGithubToken(token: string): void {
+export function setStoredAuthToken(token: string): void {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(GITHUB_TOKEN_KEY, token.trim());
+  window.localStorage.setItem(AUTH_TOKEN_KEY, token.trim());
+  window.localStorage.removeItem(LEGACY_GITHUB_TOKEN_KEY);
 }
 
-export function clearStoredGithubToken(): void {
+export function clearStoredAuthToken(): void {
   if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(GITHUB_TOKEN_KEY);
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.localStorage.removeItem(LEGACY_GITHUB_TOKEN_KEY);
 }
-

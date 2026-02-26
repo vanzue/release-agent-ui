@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { requestJson } from '../api/client';
-import { clearStoredGithubToken, getStoredGithubToken, setStoredGithubToken } from '../auth/tokenStorage';
+import { clearStoredAuthToken, getStoredAuthToken, setStoredAuthToken } from '../auth/tokenStorage';
 
 type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
 
@@ -13,7 +13,7 @@ type AuthContextValue = {
   status: AuthStatus;
   user: AuthUser | null;
   error: string | null;
-  signIn: (token: string) => Promise<void>;
+  signInWithGithub: () => void;
   signOut: () => void;
 };
 
@@ -22,6 +22,23 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function getApiBaseUrl(): string | null {
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
   return apiBaseUrl && apiBaseUrl.length > 0 ? apiBaseUrl : null;
+}
+
+function clearOAuthHashFragment(): void {
+  if (typeof window === 'undefined') return;
+  const cleanUrl = `${window.location.pathname}${window.location.search}`;
+  window.history.replaceState(null, '', cleanUrl);
+}
+
+function readOAuthFragment(): { token: string | null; error: string | null } {
+  if (typeof window === 'undefined') return { token: null, error: null };
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+  if (!hash) return { token: null, error: null };
+  const params = new URLSearchParams(hash);
+  return {
+    token: params.get('ra_token'),
+    error: params.get('ra_error'),
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -42,24 +59,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const signIn = useCallback(
-    async (token: string) => {
-      const trimmed = token.trim();
-      if (!trimmed) {
-        throw new Error('Token is required');
-      }
+  const signInWithGithub = useCallback(() => {
+    const apiBaseUrl = getApiBaseUrl();
+    if (!apiBaseUrl) {
+      setError('Missing VITE_API_BASE_URL');
+      return;
+    }
+    if (typeof window === 'undefined') return;
 
-      const nextUser = await verifyToken(trimmed);
-      setStoredGithubToken(trimmed);
-      setUser(nextUser);
-      setStatus('authenticated');
-      setError(null);
-    },
-    [verifyToken]
-  );
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    const redirect = new URL('/auth/github/start', apiBaseUrl);
+    redirect.searchParams.set('returnTo', returnTo);
+    window.location.assign(redirect.toString());
+  }, []);
 
   const signOut = useCallback(() => {
-    clearStoredGithubToken();
+    clearStoredAuthToken();
     setUser(null);
     setStatus('unauthenticated');
     setError(null);
@@ -74,7 +89,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const token = getStoredGithubToken();
+      const oauth = readOAuthFragment();
+      if (oauth.token && oauth.token.trim()) {
+        setStoredAuthToken(oauth.token.trim());
+        clearOAuthHashFragment();
+      }
+      if (oauth.error) {
+        clearOAuthHashFragment();
+        setError(oauth.error);
+      }
+
+      const token = getStoredAuthToken();
       if (!token) {
         try {
           const me = await requestJson<AuthUser>(apiBaseUrl, '/auth/me');
@@ -85,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
         } catch {
-          // Ignore and continue to normal unauthenticated state.
+          // No token and access control enabled.
         }
         setStatus('unauthenticated');
         return;
@@ -97,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus('authenticated');
         setError(null);
       } catch (e: any) {
-        clearStoredGithubToken();
+        clearStoredAuthToken();
         setUser(null);
         setStatus('unauthenticated');
         setError(e?.message ?? 'Authentication failed');
@@ -112,10 +137,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       user,
       error,
-      signIn,
+      signInWithGithub,
       signOut,
     }),
-    [status, user, error, signIn, signOut]
+    [status, user, error, signInWithGithub, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -126,3 +151,4 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
+
