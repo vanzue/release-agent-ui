@@ -17,6 +17,15 @@ type AuthContextValue = {
   signOut: () => void;
 };
 
+type AuthCacheEntry = {
+  token: string;
+  user: AuthUser;
+  checkedAt: number;
+};
+
+const AUTH_CACHE_KEY = 'release-agent.auth-user-cache';
+const AUTH_CACHE_TTL_MS = 5 * 60 * 1000;
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function getApiBaseUrl(): string | null {
@@ -39,6 +48,37 @@ function readOAuthFragment(): { token: string | null; error: string | null } {
     token: params.get('ra_token'),
     error: params.get('ra_error'),
   };
+}
+
+function readAuthCache(token: string): AuthUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(AUTH_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthCacheEntry;
+    if (!parsed || parsed.token !== token) return null;
+    if (typeof parsed.checkedAt !== 'number') return null;
+    if (Date.now() - parsed.checkedAt > AUTH_CACHE_TTL_MS) return null;
+    if (!parsed.user || typeof parsed.user.login !== 'string' || typeof parsed.user.source !== 'string') return null;
+    return parsed.user;
+  } catch {
+    return null;
+  }
+}
+
+function writeAuthCache(token: string, user: AuthUser): void {
+  if (typeof window === 'undefined') return;
+  const entry: AuthCacheEntry = {
+    token,
+    user,
+    checkedAt: Date.now(),
+  };
+  window.localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(entry));
+}
+
+function clearAuthCache(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(AUTH_CACHE_KEY);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -75,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => {
     clearStoredAuthToken();
+    clearAuthCache();
     setUser(null);
     setStatus('unauthenticated');
     setError(null);
@@ -101,28 +142,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const token = getStoredAuthToken();
       if (!token) {
-        try {
-          const me = await requestJson<AuthUser>(apiBaseUrl, '/auth/me');
-          if (me.source === 'access-control-disabled') {
-            setUser(me);
-            setStatus('authenticated');
-            setError(null);
-            return;
+        // Default fast path: when no token, go directly to unauthenticated.
+        // Optional probe can be enabled for environments that rely on access-control-disabled mode.
+        const probeAccessDisabled =
+          String((import.meta.env.VITE_AUTH_PROBE_ACCESS_DISABLED as string | undefined) ?? 'false').toLowerCase() ===
+          'true';
+
+        if (probeAccessDisabled) {
+          try {
+            const me = await requestJson<AuthUser>(apiBaseUrl, '/auth/me');
+            if (me.source === 'access-control-disabled') {
+              setUser(me);
+              setStatus('authenticated');
+              setError(null);
+              return;
+            }
+          } catch {
+            // Access control is enabled.
           }
-        } catch {
-          // No token and access control enabled.
         }
+
         setStatus('unauthenticated');
         return;
       }
 
+      const cachedUser = readAuthCache(token);
+      if (cachedUser) {
+        setUser(cachedUser);
+        setStatus('authenticated');
+      }
+
       try {
         const me = await verifyToken(token);
+        writeAuthCache(token, me);
         setUser(me);
         setStatus('authenticated');
         setError(null);
       } catch (e: any) {
         clearStoredAuthToken();
+        clearAuthCache();
         setUser(null);
         setStatus('unauthenticated');
         setError(e?.message ?? 'Authentication failed');
@@ -151,4 +209,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
-
