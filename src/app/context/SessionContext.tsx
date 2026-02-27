@@ -7,7 +7,7 @@ export type SessionStatus = 'draft' | 'generating' | 'ready' | 'exported';
 
 export interface Job {
   id: string;
-  type: 'parse-changes' | 'generate-notes' | 'analyze-hotspots' | 'generate-testplan';
+  type: 'parse-changes' | 'generate-notes' | 'analyze-hotspots' | 'generate-testplan' | 'generate-testchecklists';
   status: JobStatus;
   progress: number;
   startedAt?: Date;
@@ -226,4 +226,3 @@ export function useSessions() {
   if (!context) throw new Error('useSessions must be used within SessionProvider');
   return context;
 }
-

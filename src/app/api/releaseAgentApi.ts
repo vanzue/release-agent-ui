@@ -20,6 +20,8 @@ import type {
   ApiJob,
   ApiListResponse,
   ApiPatchReleaseNotesRequest,
+  ApiQueueTestPlanChecklistsRequest,
+  ApiQueueTestPlanChecklistsResponse,
   ApiPatchTestPlanRequest,
   ApiReleaseNotesArtifact,
   ApiTestPlanArtifact,
@@ -60,6 +62,11 @@ export function createReleaseAgentApi(baseUrl: string) {
     patchTestPlanArtifact: (sessionId: string, body: ApiPatchTestPlanRequest) =>
       requestJson<ApiTestPlanArtifact>(baseUrl, `/sessions/${sessionId}/artifacts/test-plan`, {
         method: 'PATCH',
+        body,
+      }),
+    queueTestPlanChecklists: (sessionId: string, body: ApiQueueTestPlanChecklistsRequest = {}) =>
+      requestJson<ApiQueueTestPlanChecklistsResponse>(baseUrl, `/sessions/${sessionId}/artifacts/test-plan/checklists/queue`, {
+        method: 'POST',
         body,
       }),
 

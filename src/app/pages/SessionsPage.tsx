@@ -107,7 +107,7 @@ export function SessionsPage() {
       <div className="grid gap-4">
         {sorted.map((session) => {
           const completedJobs = session.jobs.filter((j) => j.status === 'completed').length;
-          const totalJobs = session.jobs.length || 4;
+          const totalJobs = session.jobs.length || 5;
           return (
             <Card key={session.id} className="p-6 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-6">
@@ -293,4 +293,3 @@ export function SessionsPage() {
     </div>
   );
 }
-

@@ -2,7 +2,7 @@ import { CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import { cn } from '../ui/utils';
 
 type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
-type JobType = 'parse-changes' | 'generate-notes' | 'analyze-hotspots' | 'generate-testplan';
+type JobType = 'parse-changes' | 'generate-notes' | 'analyze-hotspots' | 'generate-testplan' | 'generate-testchecklists';
 
 interface Job {
   type: JobType;
@@ -20,9 +20,10 @@ const JOB_LABELS: Record<JobType, string> = {
   'generate-notes': 'Generating Notes',
   'analyze-hotspots': 'Analyzing Hotspots',
   'generate-testplan': 'Generating Test Plan',
+  'generate-testchecklists': 'Generating Checklists',
 };
 
-const JOB_ORDER: JobType[] = ['parse-changes', 'generate-notes', 'analyze-hotspots', 'generate-testplan'];
+const JOB_ORDER: JobType[] = ['parse-changes', 'generate-notes', 'analyze-hotspots', 'generate-testplan', 'generate-testchecklists'];
 
 export function JobPipeline({ jobs, className }: JobPipelineProps) {
   const jobMap = new Map(jobs.map((j) => [j.type, j]));

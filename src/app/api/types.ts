@@ -1,6 +1,6 @@
 export type ApiSessionStatus = 'draft' | 'generating' | 'ready' | 'exported';
 export type ApiJobStatus = 'pending' | 'running' | 'completed' | 'failed';
-export type ApiJobType = 'parse-changes' | 'generate-notes' | 'analyze-hotspots' | 'generate-testplan';
+export type ApiJobType = 'parse-changes' | 'generate-notes' | 'analyze-hotspots' | 'generate-testplan' | 'generate-testchecklists';
 
 export type ApiSessionOptions = {
   normalizeBy?: 'pr' | 'commit';
@@ -117,20 +117,79 @@ export type ApiTestPlanArtifact = {
       checked: boolean;
       priority: 'Must' | 'Recommended' | 'Exploratory';
       source: string;
+      title?: string;
+      objective?: string;
+      preconditions?: string[];
+      steps?: string[];
+      expected?: string;
+      type?: 'Functional' | 'Regression' | 'Negative' | 'Integration' | 'Security' | 'Performance' | 'Exploratory';
+      risk?: 'High' | 'Medium' | 'Low';
+      sourceRefs?: string[];
+      tags?: string[];
     }>;
   }>;
+  checklists?: {
+    templateUrl: string | null;
+    queuedAt: string | null;
+    generatedAt: string | null;
+    summary: {
+      total: number;
+      queued: number;
+      running: number;
+      completed: number;
+      failed: number;
+    };
+    items: Array<{
+      id: string;
+      prNumber: number;
+      area: string;
+      title: string;
+      status: 'queued' | 'running' | 'completed' | 'failed';
+      markdown?: string | null;
+      error?: string | null;
+      updatedAt: string;
+      sourceRefs?: string[];
+      templateUrl?: string | null;
+    }>;
+  };
 };
+
+export type ApiPatchTestPlanCasePatch = Partial<{
+  text: string;
+  title: string;
+  objective: string;
+  expected: string;
+  preconditions: string[];
+  steps: string[];
+  source: string;
+  sourceRefs: string[];
+  tags: string[];
+  type: 'Functional' | 'Regression' | 'Negative' | 'Integration' | 'Security' | 'Performance' | 'Exploratory';
+  risk: 'High' | 'Medium' | 'Low';
+}>;
 
 export type ApiPatchTestPlanOp =
   | { op: 'updateText'; caseId: string; text: string }
   | { op: 'check'; caseId: string }
   | { op: 'uncheck'; caseId: string }
   | { op: 'changePriority'; caseId: string; priority: 'Must' | 'Recommended' | 'Exploratory' }
+  | { op: 'updateCase'; caseId: string; patch: ApiPatchTestPlanCasePatch }
   | { op: 'addCase'; caseId?: string; area: string; text: string; priority?: 'Must' | 'Recommended' | 'Exploratory' }
   | { op: 'deleteCase'; caseId: string };
 
 export type ApiPatchTestPlanRequest = {
   operations: ApiPatchTestPlanOp[];
+};
+
+export type ApiQueueTestPlanChecklistsRequest = {
+  prNumbers?: number[];
+  templateUrl?: string;
+};
+
+export type ApiQueueTestPlanChecklistsResponse = {
+  status: 'queued';
+  queued: number;
+  templateUrl: string;
 };
 
 export type ApiCreateExportRequest = {
