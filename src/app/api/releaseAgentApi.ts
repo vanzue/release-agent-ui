@@ -15,6 +15,7 @@ import type {
   ApiIssueVersionsResponse,
   ApiTopIssuesResponse,
   ApiSimilarIssuesResponse,
+  ApiIssueDetailResponse,
   ApiSemanticSearchResponse,
   ApiIssueDashboardResponse,
   ApiJob,
@@ -103,7 +104,13 @@ export function createReleaseAgentApi(baseUrl: string) {
       offset?: number;
     }) => {
       const params = new URLSearchParams({ repo });
-      if (options.targetVersion !== undefined && options.targetVersion !== null) params.set('targetVersion', options.targetVersion);
+      if (options.targetVersion === undefined) {
+        params.set('targetVersion', '__all__');
+      } else if (options.targetVersion === null) {
+        params.set('targetVersion', '__null__');
+      } else {
+        params.set('targetVersion', options.targetVersion);
+      }
       if (options.productLabels && options.productLabels.length > 0) params.set('productLabels', options.productLabels.join(','));
       if (options.state) params.set('state', options.state);
       if (options.clusterId) params.set('clusterId', options.clusterId);
@@ -159,6 +166,15 @@ export function createReleaseAgentApi(baseUrl: string) {
       if (options?.minSimilarity !== undefined) params.set('minSimilarity', String(options.minSimilarity));
       if (options?.limit !== undefined) params.set('limit', String(options.limit));
       return requestJson<ApiSimilarIssuesResponse>(baseUrl, `/issues/${issueNumber}/similar?${params.toString()}`);
+    },
+    getIssueDetail: (repo: string, issueNumber: number, options?: {
+      minSimilarity?: number;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams({ repo });
+      if (options?.minSimilarity !== undefined) params.set('minSimilarity', String(options.minSimilarity));
+      if (options?.limit !== undefined) params.set('limit', String(options.limit));
+      return requestJson<ApiIssueDetailResponse>(baseUrl, `/issues/${issueNumber}/detail?${params.toString()}`);
     },
 
     semanticSearch: (repo: string, options: {

@@ -352,6 +352,39 @@ export type ApiSimilarIssuesResponse = {
   similarIssues: ApiSimilarIssue[];
 };
 
+export type ApiIssueDetailResponse = {
+  issue: {
+    issueNumber: number;
+    ghId: string;
+    title: string;
+    body: string | null;
+    bodySnip: string | null;
+    labelsJson: any;
+    milestoneTitle: string | null;
+    targetVersion: string | null;
+    state: 'open' | 'closed';
+    createdAt: string;
+    updatedAt: string;
+    closedAt: string | null;
+    commentsCount: number;
+    reactionsCount: number;
+    embeddingModel: string | null;
+    productLabels: string[];
+  };
+  clusterMemberships: Array<{
+    clusterId: string;
+    targetVersion: string | null;
+    productLabel: string;
+    similarity: number;
+    assignedAt: string;
+    clusterSize: number;
+    clusterPopularity: number;
+    representativeIssueNumber: number | null;
+    clusterUpdatedAt: string | null;
+  }>;
+  similarIssues: ApiSimilarIssue[];
+};
+
 export type ApiSemanticSearchResponse = {
   mode: 'issue' | 'query';
   issueNumber: number | null;
