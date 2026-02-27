@@ -209,7 +209,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const deleteSession = async (sessionId: string): Promise<void> => {
     if (api) {
-      await api.deleteSession(sessionId);
+      try {
+        await api.deleteSession(sessionId);
+      } catch (e: unknown) {
+        const status = e && typeof e === 'object' && 'status' in e ? Number((e as any).status) : NaN;
+        if (status !== 404) throw e;
+      }
     }
     setSessions((prev) => prev.filter((s) => s.id !== sessionId));
   };
