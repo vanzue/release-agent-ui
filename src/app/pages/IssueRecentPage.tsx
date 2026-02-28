@@ -13,6 +13,7 @@ import { useRepo } from '../context/RepoContext';
 const VERSION_ALL = '__all__';
 const VERSION_UNVERSIONED = '__unversioned__';
 const PRODUCT_ALL = '__all_products__';
+const PAGE_SIZE = 30;
 
 function toVersionSelectValue(v: string | null | undefined): string {
   if (v === undefined) return VERSION_ALL;
@@ -40,6 +41,9 @@ export function IssueRecentPage() {
   const [selectedProduct, setSelectedProduct] = useState<string>(PRODUCT_ALL);
   const [stateFilter, setStateFilter] = useState<IssueStateFilter>('all');
   const [query, setQuery] = useState('');
+  const [appliedQuery, setAppliedQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [issues, setIssues] = useState<
     Array<{
       issueNumber: number;
@@ -70,8 +74,9 @@ export function IssueRecentPage() {
     }
   };
 
-  const loadIssues = async () => {
+  const loadIssues = async (requestedPage?: number) => {
     if (!api) return;
+    const currentPage = requestedPage ?? page;
     setIsLoading(true);
     setError(null);
     try {
@@ -79,11 +84,13 @@ export function IssueRecentPage() {
         targetVersion: selectedVersion,
         productLabels: selectedProduct === PRODUCT_ALL ? undefined : [selectedProduct],
         state: stateFilter === 'all' ? undefined : stateFilter,
-        q: query.trim() || undefined,
-        limit: 120,
-        offset: 0,
+        q: appliedQuery || undefined,
+        limit: PAGE_SIZE + 1,
+        offset: currentPage * PAGE_SIZE,
       });
-      setIssues(res.issues ?? []);
+      const rows = res.issues ?? [];
+      setHasMore(rows.length > PAGE_SIZE);
+      setIssues(rows.slice(0, PAGE_SIZE));
     } catch (e: unknown) {
       const message =
         e && typeof e === 'object' && 'message' in e ? String((e as any).message) : 'Failed to load recent issues';
@@ -95,6 +102,9 @@ export function IssueRecentPage() {
 
   useEffect(() => {
     if (!api) return;
+    setAppliedQuery('');
+    setQuery('');
+    setPage(0);
     setSelectedVersion(undefined);
     setSelectedProduct(PRODUCT_ALL);
     void (async () => {
@@ -120,7 +130,17 @@ export function IssueRecentPage() {
     if (!api) return;
     void loadIssues();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, selectedVersion, selectedProduct, stateFilter]);
+  }, [api, selectedVersion, selectedProduct, stateFilter, appliedQuery, page]);
+
+  const applySearch = () => {
+    const trimmed = query.trim();
+    if (trimmed === appliedQuery && page === 0) {
+      void loadIssues(0);
+      return;
+    }
+    setPage(0);
+    setAppliedQuery(trimmed);
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
@@ -149,7 +169,13 @@ export function IssueRecentPage() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[220px]">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Version</div>
-            <Select value={toVersionSelectValue(selectedVersion)} onValueChange={(v) => setSelectedVersion(fromVersionSelectValue(v))}>
+            <Select
+              value={toVersionSelectValue(selectedVersion)}
+              onValueChange={(v) => {
+                setPage(0);
+                setSelectedVersion(fromVersionSelectValue(v));
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select version" />
               </SelectTrigger>
@@ -169,7 +195,13 @@ export function IssueRecentPage() {
 
           <div className="min-w-[240px]">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Product</div>
-            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+            <Select
+              value={selectedProduct}
+              onValueChange={(v) => {
+                setPage(0);
+                setSelectedProduct(v);
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="All products" />
               </SelectTrigger>
@@ -186,7 +218,13 @@ export function IssueRecentPage() {
 
           <div className="min-w-[160px]">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">State</div>
-            <Select value={stateFilter} onValueChange={(v) => setStateFilter(v as IssueStateFilter)}>
+            <Select
+              value={stateFilter}
+              onValueChange={(v) => {
+                setPage(0);
+                setStateFilter(v as IssueStateFilter);
+              }}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -206,10 +244,10 @@ export function IssueRecentPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void loadIssues();
+                  if (e.key === 'Enter') applySearch();
                 }}
               />
-              <Button variant="outline" onClick={loadIssues} disabled={isLoading}>
+              <Button variant="outline" onClick={applySearch} disabled={isLoading}>
                 Apply
               </Button>
             </div>
@@ -221,11 +259,29 @@ export function IssueRecentPage() {
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h2 className="text-gray-900">Issues</h2>
-            <p className="text-gray-500 text-sm">Sorted by latest updates</p>
+            <p className="text-gray-500 text-sm">Sorted by latest updates | page {page + 1}</p>
           </div>
-          <Badge variant="outline" className="bg-gray-50 border-gray-200">
-            {issues.length} results
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-gray-50 border-gray-200">
+              {issues.length} on this page
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={isLoading || page === 0}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={isLoading || !hasMore}
+            >
+              Next
+            </Button>
+          </div>
         </div>
         <Table>
           <TableHeader>
