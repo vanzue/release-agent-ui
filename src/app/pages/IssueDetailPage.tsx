@@ -42,7 +42,7 @@ export function IssueDetailPage() {
     setError(null);
     setNotFound(false);
     try {
-      const res = await api.getIssueDetail(repo, parsedIssueNumber, { minSimilarity: 0.84, limit: 20 });
+      const res = await api.getIssueDetail(repo, parsedIssueNumber, { minSimilarity: 0.86, limit: 10 });
       setDetail(res);
     } catch (e: unknown) {
       const status = getErrorStatus(e);
