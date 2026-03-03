@@ -276,9 +276,14 @@ export function IssueDetailPage() {
                 {detail.similarIssues.map((issue) => (
                   <TableRow key={issue.issueNumber}>
                     <TableCell>
-                      <Link to={`/issues/${issue.issueNumber}`} className="text-blue-700 hover:underline">
+                      <a
+                        href={`https://github.com/${repo}/issues/${issue.issueNumber}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-700 hover:underline"
+                      >
                         #{issue.issueNumber}
-                      </Link>
+                      </a>
                     </TableCell>
                     <TableCell className="line-clamp-2">{issue.title}</TableCell>
                     <TableCell>
