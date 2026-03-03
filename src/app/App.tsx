@@ -15,6 +15,7 @@ import { IssueSemanticSearchPage } from './pages/IssueSemanticSearchPage';
 import { IssueSyncAdminPage } from './pages/IssueSyncAdminPage';
 import { IssueRecentPage } from './pages/IssueRecentPage';
 import { IssueDetailPage } from './pages/IssueDetailPage';
+import { IssueReclusterFlowPage } from './pages/IssueReclusterFlowPage';
 import { AuthProvider } from './context/AuthContext';
 import { AuthGate } from './components/auth/AuthGate';
 
@@ -36,6 +37,7 @@ export default function App() {
                 <Route path="sessions/:sessionId/exports" element={<SessionExportsPage />} />
                 <Route path="issues" element={<IssueClustersPage />} />
                 <Route path="issues/recent" element={<IssueRecentPage />} />
+                <Route path="issues/recluster" element={<IssueReclusterFlowPage />} />
                 <Route path="issues/clusters/:clusterId" element={<ClusterDetailPage />} />
                 <Route path="issues/:issueNumber" element={<IssueDetailPage />} />
                 <Route path="issues/search" element={<IssueSemanticSearchPage />} />

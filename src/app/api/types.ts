@@ -250,6 +250,16 @@ export type ApiIssueClustersResponse = {
   limit?: number;
 };
 
+export type ApiIssueReclusterScopeResponse = {
+  targetVersion: string | null;
+  productLabel: string;
+  embeddingModel: string | null;
+  openIssueCount: number;
+  openEmbeddedIssueCount: number;
+  existingClusterCount: number;
+  existingMappedIssueCount: number;
+};
+
 export type ApiIssueClusterDetails = {
   cluster: {
     clusterId: string;

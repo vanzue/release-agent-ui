@@ -71,8 +71,6 @@ export function IssueClustersPage() {
   const [versionSearch, setVersionSearch] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [threshold, setThreshold] = useState('0.86');
-  const [topK, setTopK] = useState('10');
   const [error, setError] = useState<string | null>(null);
   const topIssuesCacheRef = useRef(new Map<string, ApiTopIssue[]>());
   const clustersCacheRef = useRef(
@@ -125,7 +123,7 @@ export function IssueClustersPage() {
     if (!cached) setIsClustersLoading(true);
 
     try {
-      const res = await api.listIssueClusters(repo, productLabel, null, CLUSTER_PAGE_LIMIT);
+      const res = await api.listIssueClusters(repo, productLabel, _version, CLUSTER_PAGE_LIMIT);
       if (requestId !== clustersRequestIdRef.current) return;
 
       const nextClusters = res.clusters ?? [];
@@ -263,23 +261,13 @@ export function IssueClustersPage() {
     }
   };
 
-  const handleRecluster = async () => {
-    if (!api || !selectedProduct) return;
-    setError(null);
-    try {
-      await api.enqueueIssueRecluster({
-        repoFullName: repo,
-        targetVersion: selectedVersion ?? null,
-        productLabel: selectedProduct,
-        threshold: Number.parseFloat(threshold),
-        topK: Number.parseInt(topK, 10),
-      });
-      await loadSyncStatus();
-      await loadStats();
-    } catch (e: unknown) {
-      const message = e && typeof e === 'object' && 'message' in e ? String((e as any).message) : 'Recluster failed';
-      setError(message);
+  const handleOpenReclusterFlow = () => {
+    const params = new URLSearchParams();
+    params.set('version', toSelectValue(selectedVersion));
+    if (selectedProduct) {
+      params.set('product', selectedProduct);
     }
+    navigate(`/issues/recluster?${params.toString()}`);
   };
 
   // Show skeleton on initial load
@@ -312,8 +300,13 @@ export function IssueClustersPage() {
             )}
           </div>
           <Button variant="outline" size="sm" onClick={handleSync}>Sync</Button>
-          <Button size="sm" className="bg-gray-900 text-white hover:bg-gray-800" onClick={handleRecluster} disabled={!selectedProduct}>
-            Recluster
+          <Button
+            size="sm"
+            className="bg-gray-900 text-white hover:bg-gray-800"
+            onClick={handleOpenReclusterFlow}
+            disabled={!selectedProduct}
+          >
+            Run Clustering Flow
           </Button>
         </div>
       </div>
@@ -389,15 +382,6 @@ export function IssueClustersPage() {
           </Select>
         </div>
 
-        <div className="min-w-[120px]">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Threshold</div>
-          <Input value={threshold} onChange={(e) => setThreshold(e.target.value)} />
-        </div>
-
-        <div className="min-w-[120px]">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Top K</div>
-          <Input value={topK} onChange={(e) => setTopK(e.target.value)} />
-        </div>
         </div>
       </Card>
 
@@ -509,7 +493,7 @@ export function IssueClustersPage() {
               {clusters.length === 0 && !isLoading && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-gray-500 py-10">
-                    No clusters available for this product/version.
+                    No clusters available for this product/version. Run Clustering Flow to generate them.
                   </TableCell>
                 </TableRow>
               )}

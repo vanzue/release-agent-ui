@@ -7,6 +7,7 @@ import type {
   ApiIssueClusterDetails,
   ApiIssueClustersResponse,
   ApiIssueProductsResponse,
+  ApiIssueReclusterScopeResponse,
   ApiIssueSearchResponse,
   ApiIssueStats,
   ApiIssueSyncStatus,
@@ -84,8 +85,13 @@ export function createReleaseAgentApi(baseUrl: string) {
       }
       return requestJson<ApiIssueProductsResponse>(baseUrl, `/issues/products?${params.toString()}`);
     },
-    listIssueClusters: (repo: string, productLabel: string, _targetVersion?: string | null, limit?: number) => {
+    listIssueClusters: (repo: string, productLabel: string, targetVersion?: string | null, limit?: number) => {
       const params = new URLSearchParams({ repo, productLabel });
+      if (targetVersion === undefined) {
+        params.set('targetVersion', '__all__');
+      } else {
+        params.set('targetVersion', targetVersion ?? '__null__');
+      }
       if (limit !== undefined) params.set('limit', String(limit));
       return requestJson<ApiIssueClustersResponse>(baseUrl, `/issues/clusters?${params.toString()}`);
     },
@@ -155,6 +161,15 @@ export function createReleaseAgentApi(baseUrl: string) {
       topK: number;
     }) =>
       requestJson<{ status: string }>(baseUrl, `/issues/recluster`, { method: 'POST', body }),
+    getIssueReclusterScope: (repo: string, productLabel: string, targetVersion?: string | null) => {
+      const params = new URLSearchParams({ repo, productLabel });
+      if (targetVersion === undefined) {
+        params.set('targetVersion', '__all__');
+      } else {
+        params.set('targetVersion', targetVersion ?? '__null__');
+      }
+      return requestJson<ApiIssueReclusterScopeResponse>(baseUrl, `/issues/recluster-scope?${params.toString()}`);
+    },
 
     findSimilarIssues: (repo: string, issueNumber: number, options?: {
       productLabel?: string;
