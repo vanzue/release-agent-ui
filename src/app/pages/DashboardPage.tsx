@@ -1,11 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { createReleaseAgentApi } from '../api/releaseAgentApi';
-import type { ApiIssueDashboardResponse } from '../api/types';
+import type { ApiIssueDashboardResponse, ApiIssueSyncStatus, ApiIssueStats } from '../api/types';
 import { useRepo } from '../context/RepoContext';
+
+const DASHBOARD_REFRESH_MS = 60_000;
+const SYNC_STATUS_POLL_MS = 30_000;
+const STALE_THRESHOLD_MS = 10 * 60_000;
+
+function timeAgo(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'never';
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 export function DashboardPage() {
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
@@ -15,11 +31,22 @@ export function DashboardPage() {
   const [dashboard, setDashboard] = useState<ApiIssueDashboardResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<ApiIssueSyncStatus | null>(null);
+  const [stats, setStats] = useState<ApiIssueStats | null>(null);
+  const [now, setNow] = useState(Date.now());
 
-  const loadDashboard = async () => {
+  // Tick every 10s to keep relative timestamps current
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const loadDashboard = useCallback(async (silent = false) => {
     if (!api) return;
-    setIsLoading(true);
-    setError(null);
+    if (!silent) {
+      setIsLoading(true);
+      setError(null);
+    }
     try {
       const response = await api.getIssueDashboard(repo, {
         semanticLimit: 6,
@@ -27,18 +54,57 @@ export function DashboardPage() {
         minSimilarity: 0.84,
       });
       setDashboard(response);
+      if (!silent) setError(null);
     } catch (e: unknown) {
-      const message =
-        e && typeof e === 'object' && 'message' in e ? String((e as any).message) : 'Failed to load dashboard';
-      setError(message);
+      if (!silent) {
+        const message =
+          e && typeof e === 'object' && 'message' in e ? String((e as any).message) : 'Failed to load dashboard';
+        setError(message);
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
-  };
+  }, [api, repo]);
 
+  const loadSyncStatus = useCallback(async () => {
+    if (!api) return;
+    try {
+      const [status, issueStats] = await Promise.all([
+        api.getIssueSyncStatus(repo),
+        api.getIssueStats(repo),
+      ]);
+      setSyncStatus(status);
+      setStats(issueStats);
+    } catch {
+      // Sync status is non-critical; silently ignore errors
+    }
+  }, [api, repo]);
+
+  // Initial load
   useEffect(() => {
     void loadDashboard();
-  }, [api, repo]);
+    void loadSyncStatus();
+  }, [loadDashboard, loadSyncStatus]);
+
+  // Auto-refresh dashboard every 60s (silent)
+  useEffect(() => {
+    const id = setInterval(() => void loadDashboard(true), DASHBOARD_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [loadDashboard]);
+
+  // Poll sync status every 30s
+  useEffect(() => {
+    const id = setInterval(() => void loadSyncStatus(), SYNC_STATUS_POLL_MS);
+    return () => clearInterval(id);
+  }, [loadSyncStatus]);
+
+  const isStale = syncStatus?.lastSyncedAt
+    ? Date.now() - new Date(syncStatus.lastSyncedAt).getTime() > STALE_THRESHOLD_MS
+    : false;
+  const neverSynced = syncStatus !== null && syncStatus.lastSyncedAt === null;
+
+  // Force re-evaluation of timeAgo by reading `now`
+  void now;
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
@@ -48,7 +114,7 @@ export function DashboardPage() {
           <p className="text-gray-600">Latest release hotspots grouped by semantic similarity.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={loadDashboard} disabled={isLoading}>
+          <Button variant="outline" onClick={() => { void loadDashboard(); void loadSyncStatus(); }} disabled={isLoading}>
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
           <Link to="/issues">
@@ -56,6 +122,46 @@ export function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Sync status bar */}
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        {syncStatus && (
+          <Badge variant="outline" className={
+            neverSynced
+              ? 'bg-red-50 text-red-700 border-red-200'
+              : isStale
+                ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                : 'bg-green-50 text-green-700 border-green-200'
+          }>
+            {neverSynced ? '⚠ Never synced' : isStale ? `⚠ Synced ${timeAgo(syncStatus.lastSyncedAt)}` : `Synced ${timeAgo(syncStatus.lastSyncedAt)}`}
+          </Badge>
+        )}
+        {stats && (
+          <>
+            <Badge variant="outline" className="bg-gray-50 border-gray-200">
+              {stats.totalIssues.toLocaleString()} issues
+            </Badge>
+            <Badge variant="outline" className="bg-gray-50 border-gray-200">
+              {stats.openIssues.toLocaleString()} open
+            </Badge>
+            <Badge variant="outline" className="bg-gray-50 border-gray-200">
+              {stats.embeddedOpenIssues.toLocaleString()} embedded
+            </Badge>
+          </>
+        )}
+        {dashboard?.generatedAt && (
+          <Badge variant="outline" className="bg-gray-50 border-gray-200">
+            Dashboard computed {timeAgo(dashboard.generatedAt)}
+          </Badge>
+        )}
+        <span className="text-xs text-gray-400 ml-auto">Auto-refreshes every 60s</span>
+      </div>
+
+      {neverSynced && (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+          No issues have been synced yet. Go to the <Link to="/issues/admin" className="underline font-medium">sync admin page</Link> to start an issue sync.
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
