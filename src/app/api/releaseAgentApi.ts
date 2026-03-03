@@ -168,10 +168,12 @@ export function createReleaseAgentApi(baseUrl: string) {
       return requestJson<ApiSimilarIssuesResponse>(baseUrl, `/issues/${issueNumber}/similar?${params.toString()}`);
     },
     getIssueDetail: (repo: string, issueNumber: number, options?: {
+      includeSimilar?: boolean;
       minSimilarity?: number;
       limit?: number;
     }) => {
       const params = new URLSearchParams({ repo });
+      if (options?.includeSimilar !== undefined) params.set('includeSimilar', String(options.includeSimilar));
       if (options?.minSimilarity !== undefined) params.set('minSimilarity', String(options.minSimilarity));
       if (options?.limit !== undefined) params.set('limit', String(options.limit));
       return requestJson<ApiIssueDetailResponse>(baseUrl, `/issues/${issueNumber}/detail?${params.toString()}`);

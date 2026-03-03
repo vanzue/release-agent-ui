@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -31,20 +32,44 @@ export function IssueDetailPage() {
 
   const [detail, setDetail] = useState<ApiIssueDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSimilar, setIsLoadingSimilar] = useState(false);
+  const [similarError, setSimilarError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const activeRequestIdRef = useRef(0);
 
   const parsedIssueNumber = issueNumber ? Number.parseInt(issueNumber, 10) : Number.NaN;
 
   const load = async () => {
     if (!api || Number.isNaN(parsedIssueNumber)) return;
+    const requestId = ++activeRequestIdRef.current;
     setIsLoading(true);
+    setIsLoadingSimilar(false);
+    setSimilarError(null);
     setError(null);
     setNotFound(false);
+    setDetail(null);
     try {
-      const res = await api.getIssueDetail(repo, parsedIssueNumber, { minSimilarity: 0.86, limit: 10 });
+      const res = await api.getIssueDetail(repo, parsedIssueNumber, { includeSimilar: false });
+      if (requestId !== activeRequestIdRef.current) return;
       setDetail(res);
+      setIsLoading(false);
+
+      setIsLoadingSimilar(true);
+      try {
+        const similarRes = await api.findSimilarIssues(repo, parsedIssueNumber, { minSimilarity: 0.86, limit: 10 });
+        if (requestId !== activeRequestIdRef.current) return;
+        setDetail((prev) => (prev ? { ...prev, similarIssues: similarRes.similarIssues } : prev));
+      } catch (e: unknown) {
+        if (requestId !== activeRequestIdRef.current) return;
+        setSimilarError(getErrorMessage(e));
+      } finally {
+        if (requestId === activeRequestIdRef.current) {
+          setIsLoadingSimilar(false);
+        }
+      }
     } catch (e: unknown) {
+      if (requestId !== activeRequestIdRef.current) return;
       const status = getErrorStatus(e);
       if (status === 404) {
         setNotFound(true);
@@ -53,13 +78,16 @@ export function IssueDetailPage() {
         setError(getErrorMessage(e));
       }
     } finally {
-      setIsLoading(false);
+      if (requestId === activeRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     if (Number.isNaN(parsedIssueNumber)) {
       setError('Invalid issue number');
+      setDetail(null);
       return;
     }
     void load();
@@ -98,7 +126,12 @@ export function IssueDetailPage() {
       )}
 
       {isLoading && !detail && (
-        <Card className="p-6 text-gray-500">Loading issue details...</Card>
+        <Card className="p-6 text-gray-500">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Loading issue details...</span>
+          </div>
+        </Card>
       )}
 
       {detail && (
@@ -203,9 +236,21 @@ export function IssueDetailPage() {
                 <p className="text-gray-500 text-sm">Nearest issues by embedding similarity</p>
               </div>
               <Badge variant="outline" className="bg-gray-50 border-gray-200">
-                {detail.similarIssues.length} matches
+                {isLoadingSimilar ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Loading...</span>
+                  </span>
+                ) : (
+                  `${detail.similarIssues.length} matches`
+                )}
               </Badge>
             </div>
+            {similarError && (
+              <div className="px-4 pt-3 text-sm text-amber-700">
+                Similarity data failed to load: {similarError}
+              </div>
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -218,6 +263,16 @@ export function IssueDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {isLoadingSimilar && detail.similarIssues.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Loading similar issues...</span>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                )}
                 {detail.similarIssues.map((issue) => (
                   <TableRow key={issue.issueNumber}>
                     <TableCell>
@@ -243,7 +298,7 @@ export function IssueDetailPage() {
                     <TableCell>{new Date(issue.updatedAt).toLocaleString()}</TableCell>
                   </TableRow>
                 ))}
-                {detail.similarIssues.length === 0 && (
+                {!isLoadingSimilar && detail.similarIssues.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                       No similar issues found for this issue.
