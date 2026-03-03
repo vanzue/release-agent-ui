@@ -2,10 +2,10 @@ name: Deploy frontend (Azure Static Web Apps)
 
 on:
   push:
-    branches: [stable]
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    branches: [stable]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
